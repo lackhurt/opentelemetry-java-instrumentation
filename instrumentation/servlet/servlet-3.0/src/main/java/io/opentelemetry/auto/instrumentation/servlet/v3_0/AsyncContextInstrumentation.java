@@ -50,6 +50,10 @@ public final class AsyncContextInstrumentation extends Instrumenter.Default {
     return new String[] {
       "io.opentelemetry.instrumentation.servlet.HttpServletRequestGetter",
       "io.opentelemetry.instrumentation.servlet.ServletHttpServerTracer",
+      packageName + ".CountingHttpServletResponse",
+      packageName + ".CountingHttpServletResponse$CountingServletOutputStream",
+      packageName + ".CountingHttpServletResponse$CountingPrintWriter",
+      packageName + ".TagSettingAsyncListener",
       packageName + ".Servlet3HttpServerTracer"
     };
   }
@@ -81,15 +85,15 @@ public final class AsyncContextInstrumentation extends Instrumenter.Default {
     @Advice.OnMethodEnter(suppress = Throwable.class)
     public static boolean enter(
         @Advice.This final AsyncContext context, @Advice.AllArguments final Object[] args) {
-      final int depth = CallDepthThreadLocalMap.incrementCallDepth(AsyncContext.class);
+      int depth = CallDepthThreadLocalMap.incrementCallDepth(AsyncContext.class);
       if (depth > 0) {
         return false;
       }
 
-      final ServletRequest request = context.getRequest();
+      ServletRequest request = context.getRequest();
 
       Context currentContext = Context.current();
-      final Span currentSpan = getSpan(currentContext);
+      Span currentSpan = getSpan(currentContext);
       if (currentSpan.getContext().isValid()) {
         // this tells the dispatched servlet to use the current span as the parent for its work
         // (if the currentSpan is not valid for some reason, the original servlet span should still

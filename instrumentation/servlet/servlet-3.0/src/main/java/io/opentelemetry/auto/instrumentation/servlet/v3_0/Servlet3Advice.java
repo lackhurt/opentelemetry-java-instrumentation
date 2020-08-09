@@ -34,18 +34,16 @@ public class Servlet3Advice {
 
   @Advice.OnMethodEnter(suppress = Throwable.class)
   public static void onEnter(
-      @Advice.This final Object servlet,
       @Advice.Origin final Method method,
-      @Advice.Argument(0) final ServletRequest request,
-      @Advice.Argument(1) final ServletResponse response,
+      @Advice.Argument(value = 0, readOnly = false) ServletRequest request,
+      @Advice.Argument(value = 1, readOnly = false) ServletResponse response,
       @Advice.Local("otelSpan") Span span,
       @Advice.Local("otelScope") Scope scope) {
-
     if (!(request instanceof HttpServletRequest) || !(response instanceof HttpServletResponse)) {
       return;
     }
 
-    final HttpServletRequest httpServletRequest = (HttpServletRequest) request;
+    HttpServletRequest httpServletRequest = (HttpServletRequest) request;
 
     Context attachedContext = TRACER.getServerContext(httpServletRequest);
     if (attachedContext != null) {
@@ -56,10 +54,14 @@ public class Servlet3Advice {
       return;
     }
 
-    span =
-        TRACER.startSpan(
-            httpServletRequest, httpServletRequest, method, servlet.getClass().getName());
+    span = TRACER.startSpan(httpServletRequest, httpServletRequest, method);
     scope = TRACER.startScope(span, httpServletRequest);
+    if (!(response instanceof CountingHttpServletResponse)) {
+      response = new CountingHttpServletResponse((HttpServletResponse) response);
+      request =
+          new CountingHttpServletRequest(
+              (HttpServletRequest) request, (HttpServletResponse) response);
+    }
   }
 
   @Advice.OnMethodExit(onThrowable = Throwable.class, suppress = Throwable.class)
@@ -80,13 +82,12 @@ public class Servlet3Advice {
     }
 
     TRACER.setPrincipal(span, (HttpServletRequest) request);
-
     if (throwable != null) {
-      TRACER.endExceptionally(span, throwable, ((HttpServletResponse) response).getStatus());
+      TRACER.endExceptionally(span, throwable, (HttpServletResponse) response);
       return;
     }
 
-    final AtomicBoolean responseHandled = new AtomicBoolean(false);
+    AtomicBoolean responseHandled = new AtomicBoolean(false);
 
     // In case of async servlets wait for the actual response to be ready
     if (request.isAsyncStarted()) {
@@ -100,7 +101,7 @@ public class Servlet3Advice {
 
     // Check again in case the request finished before adding the listener.
     if (!request.isAsyncStarted() && responseHandled.compareAndSet(false, true)) {
-      TRACER.end(span, ((HttpServletResponse) response).getStatus());
+      TRACER.end(span, (HttpServletResponse) response);
     }
   }
 }

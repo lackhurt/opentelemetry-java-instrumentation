@@ -132,8 +132,8 @@ class PutGetTest extends AgentTestRunner {
           spanKind CLIENT
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "geode"
-            "${SemanticAttributes.DB_INSTANCE.key()}" "test-region"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "geode"
+            "${SemanticAttributes.DB_NAME.key()}" "test-region"
           }
         }
         span(2) {
@@ -141,8 +141,8 @@ class PutGetTest extends AgentTestRunner {
           spanKind CLIENT
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "geode"
-            "${SemanticAttributes.DB_INSTANCE.key()}" "test-region"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "geode"
+            "${SemanticAttributes.DB_NAME.key()}" "test-region"
           }
         }
         span(3) {
@@ -150,8 +150,8 @@ class PutGetTest extends AgentTestRunner {
           spanKind CLIENT
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "geode"
-            "${SemanticAttributes.DB_INSTANCE.key()}" "test-region"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "geode"
+            "${SemanticAttributes.DB_NAME.key()}" "test-region"
             if (query != null) {
               "${SemanticAttributes.DB_STATEMENT.key()}" query
             }

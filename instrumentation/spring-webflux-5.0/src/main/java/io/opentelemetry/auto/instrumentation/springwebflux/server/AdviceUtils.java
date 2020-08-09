@@ -26,7 +26,6 @@ import io.opentelemetry.trace.Status;
 import io.opentelemetry.trace.TracingContextUtils;
 import java.util.Map;
 import java.util.function.Function;
-import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscription;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -36,18 +35,15 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Operators;
 import reactor.util.context.Context;
 
-@Slf4j
 public class AdviceUtils {
 
   public static final String CONTEXT_ATTRIBUTE =
       "io.opentelemetry.auto.instrumentation.springwebflux.Context";
-  public static final String PARENT_CONTEXT_ATTRIBUTE =
-      "io.opentelemetry.auto.instrumentation.springwebflux.ParentContext";
 
   public static String parseOperationName(final Object handler) {
-    final String className = DECORATE.spanNameForClass(handler.getClass());
-    final String operationName;
-    final int lambdaIdx = className.indexOf("$$Lambda$");
+    String className = DECORATE.spanNameForClass(handler.getClass());
+    String operationName;
+    int lambdaIdx = className.indexOf("$$Lambda$");
 
     if (lambdaIdx > -1) {
       operationName = className.substring(0, lambdaIdx) + ".lambda";
@@ -89,7 +85,7 @@ public class AdviceUtils {
   private static void finishSpanIfPresentInAttributes(
       final Map<String, Object> attributes, final Throwable throwable) {
 
-    final io.grpc.Context context = (io.grpc.Context) attributes.remove(CONTEXT_ATTRIBUTE);
+    io.grpc.Context context = (io.grpc.Context) attributes.remove(CONTEXT_ATTRIBUTE);
     finishSpanIfPresent(context, throwable);
   }
 
@@ -119,14 +115,14 @@ public class AdviceUtils {
 
     @Override
     public void onSubscribe(final Subscription s) {
-      try (final Scope scope = withScopedContext(otelContext)) {
+      try (Scope scope = withScopedContext(otelContext)) {
         subscriber.onSubscribe(s);
       }
     }
 
     @Override
     public void onNext(final T t) {
-      try (final Scope scope = withScopedContext(otelContext)) {
+      try (Scope scope = withScopedContext(otelContext)) {
         subscriber.onNext(t);
       }
     }

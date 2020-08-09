@@ -2,6 +2,8 @@
 buildscript {
 
   repositories {
+    mavenLocal()
+    jcenter()
     mavenCentral()
   }
 
@@ -19,13 +21,13 @@ Project instr_project = project
 subprojects {
   afterEvaluate { Project subProj ->
     if (subProj.getPlugins().hasPlugin('java')) {
-      subProj.archivesBaseName = 'opentelemetry-auto-' + subProj.archivesBaseName
-
       // Make it so all instrumentation subproject tests can be run with a single command.
       instr_project.tasks.test.dependsOn(subProj.tasks.test)
 
-      instr_project.dependencies {
-        implementation(project(subProj.getPath()))
+      if (subProj.findProperty('packageInAgentBundle')) {
+        instr_project.dependencies {
+          implementation(project(subProj.getPath()))
+        }
       }
     }
   }
@@ -44,41 +46,11 @@ configurations {
   implementation.exclude group: 'io.opentelemetry', module: 'opentelemetry-api'
 }
 
-// need to perform shading in two steps in order to avoid shading java.util.logging.Logger
-// in the java-util-logging instrumentation since that instrumentation needs to
-// reference unshaded java.util.logging.Logger
-// (java.util.logging.Logger shading is not needed in any of the instrumentation modules,
-// but it is needed for the dependencies, e.g. guava, which use java.util.logging.Logger)
-task shadowJarStep1(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-
-  archiveClassifier = 'step1'
-  destinationDirectory = file("${project.buildDir}/step1")
-
-  configurations = [project.configurations.runtimeClasspath]
-
-  dependencies {
-    exclude(project(':instrumentation:java-util-logging'))
-  }
-
-  // rewrite dependencies calling Logger.getLogger
-  relocate 'java.util.logging.Logger', 'io.opentelemetry.auto.bootstrap.PatchLogger'
-}
-
 shadowJar {
-
-  dependsOn shadowJarStep1
-
-  from {
-    zipTree(shadowJarStep1.archiveFile)
-  }
 
   mergeServiceFiles()
 
   exclude '**/module-info.class'
-
-  dependencies {
-    exclude(dependency("org.projectlombok:lombok:$versions.lombok"))
-  }
 
   // Prevents conflict with other SLF4J instances. Important for premain.
   relocate 'org.slf4j', 'io.opentelemetry.auto.slf4j'
@@ -88,6 +60,9 @@ shadowJar {
   dependencies {
     exclude(project(':auto-bootstrap'))
   }
+
+  // rewrite dependencies calling Logger.getLogger
+  relocate 'java.util.logging.Logger', 'io.opentelemetry.auto.bootstrap.PatchLogger'
 
   // relocate OpenTelemetry API usage
   relocate "io.opentelemetry.OpenTelemetry", "io.opentelemetry.auto.shaded.io.opentelemetry.OpenTelemetry"

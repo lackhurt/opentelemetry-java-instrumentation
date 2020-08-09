@@ -18,12 +18,14 @@ package io.opentelemetry.auto.instrumentation.opentelemetryapi.context.propagati
 
 import io.opentelemetry.auto.bootstrap.ContextStore;
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import unshaded.io.grpc.Context;
 import unshaded.io.opentelemetry.context.propagation.HttpTextFormat;
 
-@Slf4j
 class UnshadedHttpTextFormat implements HttpTextFormat {
+
+  private static final Logger log = LoggerFactory.getLogger(UnshadedHttpTextFormat.class);
 
   private final io.opentelemetry.context.propagation.HttpTextFormat shadedHttpTextFormat;
   private final ContextStore<Context, io.grpc.Context> contextStore;
@@ -43,14 +45,14 @@ class UnshadedHttpTextFormat implements HttpTextFormat {
   @Override
   public <C> Context extract(
       final Context context, final C carrier, final HttpTextFormat.Getter<C> getter) {
-    final io.grpc.Context shadedContext = contextStore.get(context);
+    io.grpc.Context shadedContext = contextStore.get(context);
     if (shadedContext == null) {
       if (log.isDebugEnabled()) {
         log.debug("unexpected context: {}", context, new Exception("unexpected context"));
       }
       return context;
     }
-    final io.grpc.Context updatedShadedContext =
+    io.grpc.Context updatedShadedContext =
         shadedHttpTextFormat.extract(shadedContext, carrier, new UnshadedGetter<>(getter));
     if (updatedShadedContext == shadedContext) {
       return context;
@@ -62,7 +64,7 @@ class UnshadedHttpTextFormat implements HttpTextFormat {
   @Override
   public <C> void inject(
       final Context context, final C carrier, final HttpTextFormat.Setter<C> setter) {
-    final io.grpc.Context shadedContext = contextStore.get(context);
+    io.grpc.Context shadedContext = contextStore.get(context);
     if (shadedContext == null) {
       if (log.isDebugEnabled()) {
         log.debug("unexpected context: {}", context, new Exception("unexpected context"));

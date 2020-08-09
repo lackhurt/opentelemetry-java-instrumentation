@@ -17,6 +17,7 @@
 package io.opentelemetry.auto.instrumentation.grpc.common;
 
 import io.grpc.Status.Code;
+import io.opentelemetry.auto.bootstrap.instrumentation.decorator.BaseTracer;
 import io.opentelemetry.trace.Span;
 import io.opentelemetry.trace.Status;
 import io.opentelemetry.trace.Status.CanonicalCode;
@@ -58,10 +59,10 @@ public final class GrpcHelper {
       final boolean server) {
     String serviceName =
         "(unknown)"; // Spec says it's mandatory, so populate even if we couldn't determine it.
-    final int slash = methodName.indexOf('/');
+    int slash = methodName.indexOf('/');
     if (slash != -1) {
-      final String fullServiceName = methodName.substring(0, slash);
-      final int dot = fullServiceName.lastIndexOf('.');
+      String fullServiceName = methodName.substring(0, slash);
+      int dot = fullServiceName.lastIndexOf('.');
       if (dot != -1) {
         serviceName = fullServiceName.substring(dot + 1);
       }
@@ -73,13 +74,13 @@ public final class GrpcHelper {
         span.setAttribute(
             SemanticAttributes.NET_PEER_IP.key(), peerAddress.getAddress().getHostAddress());
       } else {
-        span.setAttribute(SemanticAttributes.NET_PEER_NAME.key(), peerAddress.getHostName());
+        BaseTracer.setPeer(span, peerAddress.getHostName(), null);
       }
     } else {
       // The spec says these fields must be populated, so put some values in even if we don't have
       // an address recorded.
       span.setAttribute(SemanticAttributes.NET_PEER_PORT.key(), 0);
-      span.setAttribute(SemanticAttributes.NET_PEER_NAME.key(), "(unknown)");
+      BaseTracer.setPeer(span, "(unknown)", null);
     }
   }
 

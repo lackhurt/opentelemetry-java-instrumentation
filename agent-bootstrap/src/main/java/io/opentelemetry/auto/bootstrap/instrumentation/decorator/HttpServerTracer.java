@@ -17,76 +17,152 @@
 package io.opentelemetry.auto.bootstrap.instrumentation.decorator;
 
 import static io.opentelemetry.OpenTelemetry.getPropagators;
+import static io.opentelemetry.auto.bootstrap.instrumentation.java.concurrent.ExecutorInstrumentationUtils.THREAD_PROPAGATION_DEBUGGER;
 import static io.opentelemetry.context.ContextUtils.withScopedContext;
 import static io.opentelemetry.trace.Span.Kind.SERVER;
 import static io.opentelemetry.trace.TracingContextUtils.getSpan;
 import static io.opentelemetry.trace.TracingContextUtils.withSpan;
 
 import io.grpc.Context;
-import io.opentelemetry.OpenTelemetry;
+import io.opentelemetry.auto.bootstrap.instrumentation.java.concurrent.ExecutorInstrumentationUtils;
 import io.opentelemetry.auto.config.Config;
 import io.opentelemetry.auto.instrumentation.api.MoreAttributes;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.context.propagation.HttpTextFormat;
+import io.opentelemetry.trace.EndSpanOptions;
 import io.opentelemetry.trace.Span;
 import io.opentelemetry.trace.SpanContext;
 import io.opentelemetry.trace.Tracer;
+import io.opentelemetry.trace.TracingContextUtils;
 import io.opentelemetry.trace.attributes.SemanticAttributes;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.concurrent.ExecutionException;
-import lombok.extern.slf4j.Slf4j;
+import java.util.Iterator;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // TODO In search for a better home package
-@Slf4j
-public abstract class HttpServerTracer<REQUEST, CONNECTION, STORAGE> {
-  public static final String CONTEXT_ATTRIBUTE = "io.opentelemetry.instrumentation.context";
-  // Keeps track of the server span for the current trace.
-  private static final Context.Key<Span> CONTEXT_SERVER_SPAN_KEY =
-      Context.key("opentelemetry-trace-server-span-key");
+public abstract class HttpServerTracer<REQUEST, RESPONSE, CONNECTION, STORAGE> extends BaseTracer {
 
-  protected final Tracer tracer;
+  private static final Logger log = LoggerFactory.getLogger(HttpServerTracer.class);
+
+  public static final String CONTEXT_ATTRIBUTE = "io.opentelemetry.instrumentation.context";
+
+  protected static final String USER_AGENT = "User-Agent";
+
+  private static final boolean FAIL_ON_CONTEXT_LEAK =
+      Boolean.getBoolean("otel.internal.failOnContextLeak");
 
   public HttpServerTracer() {
-    tracer = OpenTelemetry.getTracerProvider().get(getInstrumentationName(), getVersion());
+    super();
   }
-
-  protected abstract String getInstrumentationName();
-
-  protected abstract String getVersion();
 
   public HttpServerTracer(Tracer tracer) {
-    this.tracer = tracer;
+    super(tracer);
   }
 
-  public Span startSpan(REQUEST request, CONNECTION connection, Method origin, String originType) {
+  public Span startSpan(REQUEST request, CONNECTION connection, Method origin) {
     String spanName = spanNameForMethod(origin);
-    return startSpan(request, connection, spanName, originType);
+    return startSpan(request, connection, spanName);
+  }
+
+  public Span startSpan(REQUEST request, CONNECTION connection, String spanName) {
+    return startSpan(request, connection, spanName, -1);
   }
 
   public Span startSpan(
-      REQUEST request, CONNECTION connection, String spanName, String originType) {
-    final Span.Builder builder =
-        tracer
-            .spanBuilder(spanName)
-            .setSpanKind(SERVER)
-            .setParent(extract(request, getGetter()))
-            // TODO Where span.origin.type is defined?
-            .setAttribute("span.origin.type", originType);
+      REQUEST request, CONNECTION connection, String spanName, long startTimestamp) {
+    Span.Builder builder =
+        tracer.spanBuilder(spanName).setSpanKind(SERVER).setParent(extract(request, getGetter()));
+
+    if (startTimestamp >= 0) {
+      builder.setStartTimestamp(startTimestamp);
+    }
 
     Span span = builder.startSpan();
     onConnection(span, connection);
     onRequest(span, request);
+    onConnectionAndRequest(span, connection, request);
 
     return span;
   }
 
+  /**
+   * Creates new scoped context with the given span.
+   *
+   * <p>Attaches new context to the request to avoid creating duplicate server spans.
+   */
+  public Scope startScope(Span span, STORAGE storage) {
+    // TODO we could do this in one go, but TracingContextUtils.CONTEXT_SPAN_KEY is private
+    Context newContext = withSpan(span, Context.current().withValue(CONTEXT_SERVER_SPAN_KEY, span));
+    attachServerContext(newContext, storage);
+    return withScopedContext(newContext);
+  }
+
+  /**
+   * Convenience method. Delegates to {@link #end(Span, Object, long)}, passing {@code timestamp}
+   * value of {@code -1}.
+   */
+  // TODO should end methods remove SPAN attribute from request as well?
+  public void end(Span span, RESPONSE response) {
+    end(span, response, -1);
+  }
+
+  // TODO should end methods remove SPAN attribute from request as well?
+  public void end(Span span, RESPONSE response, long timestamp) {
+    setStatus(span, responseStatus(response));
+    endSpan(span, timestamp);
+  }
+
+  /**
+   * Convenience method. Delegates to {@link #endExceptionally(Span, Throwable, RESPONSE)}, passing
+   * {@code response} value of {@code null}.
+   */
+  @Override
+  public void endExceptionally(Span span, Throwable throwable) {
+    endExceptionally(span, throwable, null);
+  }
+
+  /**
+   * Convenience method. Delegates to {@link #endExceptionally(Span, Throwable, RESPONSE, long)},
+   * passing {@code timestamp} value of {@code -1}.
+   */
+  public void endExceptionally(Span span, Throwable throwable, RESPONSE response) {
+    endExceptionally(span, throwable, response, -1);
+  }
+
+  /**
+   * If {@code response} is {@code null}, the {@code http.status_code} will be set to {@code 500}
+   * and the {@link Span} status will be set to {@link io.opentelemetry.trace.Status#INTERNAL}.
+   */
+  public void endExceptionally(Span span, Throwable throwable, RESPONSE response, long timestamp) {
+    onError(span, unwrapThrowable(throwable));
+    if (response == null) {
+      setStatus(span, 500);
+    } else {
+      setStatus(span, responseStatus(response));
+    }
+    endSpan(span, timestamp);
+  }
+
+  public Span getServerSpan(STORAGE storage) {
+    Context attachedContext = getServerContext(storage);
+    return attachedContext == null ? null : CONTEXT_SERVER_SPAN_KEY.get(attachedContext);
+  }
+
+  /**
+   * Returns context stored to the given request-response-loop storage by {@link
+   * #attachServerContext(Context, STORAGE)}.
+   *
+   * <p>May be null.
+   */
+  public abstract Context getServerContext(STORAGE storage);
+
   protected void onConnection(Span span, CONNECTION connection) {
     SemanticAttributes.NET_PEER_IP.set(span, peerHostIP(connection));
-    final Integer port = peerPort(connection);
+    Integer port = peerPort(connection);
     // Negative or Zero ports might represent an unset/null value for an int type.  Skip setting.
     if (port != null && port > 0) {
       SemanticAttributes.NET_PEER_PORT.set(span, port);
@@ -96,12 +172,15 @@ public abstract class HttpServerTracer<REQUEST, CONNECTION, STORAGE> {
   // TODO use semantic attributes
   protected void onRequest(final Span span, final REQUEST request) {
     SemanticAttributes.HTTP_METHOD.set(span, method(request));
-
+    String userAgent = requestHeader(request, USER_AGENT);
+    if (userAgent != null) {
+      SemanticAttributes.HTTP_USER_AGENT.set(span, userAgent);
+    }
     // Copy of HttpClientDecorator url handling
     try {
-      final URI url = url(request);
+      URI url = url(request);
       if (url != null) {
-        final StringBuilder urlBuilder = new StringBuilder();
+        StringBuilder urlBuilder = new StringBuilder();
         if (url.getScheme() != null) {
           urlBuilder.append(url.getScheme());
           urlBuilder.append("://");
@@ -113,17 +192,17 @@ public abstract class HttpServerTracer<REQUEST, CONNECTION, STORAGE> {
             urlBuilder.append(url.getPort());
           }
         }
-        final String path = url.getPath();
+        String path = url.getPath();
         if (path.isEmpty()) {
           urlBuilder.append("/");
         } else {
           urlBuilder.append(path);
         }
-        final String query = url.getQuery();
+        String query = url.getQuery();
         if (query != null) {
           urlBuilder.append("?").append(query);
         }
-        final String fragment = url.getFragment();
+        String fragment = url.getFragment();
         if (fragment != null) {
           urlBuilder.append("#").append(fragment);
         }
@@ -141,113 +220,125 @@ public abstract class HttpServerTracer<REQUEST, CONNECTION, STORAGE> {
     // TODO set resource name from URL.
   }
 
-  /**
-   * This method is used to generate an acceptable span (operation) name based on a given method
-   * reference. Anonymous classes are named based on their parent.
-   */
-  private String spanNameForMethod(final Method method) {
-    return spanNameForClass(method.getDeclaringClass()) + "." + method.getName();
+  protected void onConnectionAndRequest(Span span, CONNECTION connection, REQUEST request) {
+    String flavor = flavor(connection, request);
+    if (flavor != null) {
+      SemanticAttributes.HTTP_FLAVOR.set(span, flavor);
+    }
+    SemanticAttributes.HTTP_CLIENT_IP.set(span, clientIP(connection, request));
   }
 
-  /**
-   * This method is used to generate an acceptable span (operation) name based on a given class
-   * reference. Anonymous classes are named based on their parent.
-   */
-  private String spanNameForClass(final Class clazz) {
-    if (!clazz.isAnonymousClass()) {
-      return clazz.getSimpleName();
-    }
-    String className = clazz.getName();
-    if (clazz.getPackage() != null) {
-      final String pkgName = clazz.getPackage().getName();
-      if (!pkgName.isEmpty()) {
-        className = clazz.getName().replace(pkgName, "").substring(1);
+  protected String clientIP(CONNECTION connection, REQUEST request) {
+    // try Forwarded
+    String forwarded = requestHeader(request, "Forwarded");
+    if (forwarded != null) {
+      forwarded = extractForwardedFor(forwarded);
+      if (forwarded != null) {
+        return forwarded;
       }
     }
-    return className;
-  }
 
-  protected void onError(final Span span, final Throwable throwable) {
-    addThrowable(span, unwrapThrowable(throwable));
-  }
-
-  // TODO semantic attributes
-  public static void addThrowable(final Span span, final Throwable throwable) {
-    span.setAttribute(MoreAttributes.ERROR_MSG, throwable.getMessage());
-    span.setAttribute(MoreAttributes.ERROR_TYPE, throwable.getClass().getName());
-
-    final StringWriter errorString = new StringWriter();
-    throwable.printStackTrace(new PrintWriter(errorString));
-    span.setAttribute(MoreAttributes.ERROR_STACK, errorString.toString());
-  }
-
-  public Span getCurrentSpan() {
-    return tracer.getCurrentSpan();
-  }
-
-  public Span getServerSpan(STORAGE storage) {
-    Context attachedContext = getServerContext(storage);
-    return attachedContext == null ? null : CONTEXT_SERVER_SPAN_KEY.get(attachedContext);
-  }
-
-  /**
-   * Creates new scoped context with the given span.
-   *
-   * <p>Attaches new context to the request to avoid creating duplicate server spans.
-   */
-  public Scope startScope(Span span, STORAGE storage) {
-    // TODO we could do this in one go, but TracingContextUtils.CONTEXT_SPAN_KEY is private
-    Context serverSpanContext = Context.current().withValue(CONTEXT_SERVER_SPAN_KEY, span);
-    Context newContext = withSpan(span, serverSpanContext);
-    attachServerContext(newContext, storage);
-    return withScopedContext(newContext);
-  }
-
-  // TODO should end methods remove SPAN attribute from request as well?
-  public void end(Span span, int responseStatus) {
-    setStatus(span, responseStatus);
-    span.end();
-  }
-
-  /** Ends given span exceptionally with default response status code 500. */
-  public void endExceptionally(Span span, Throwable throwable) {
-    endExceptionally(span, throwable, 500);
-  }
-
-  public void endExceptionally(Span span, Throwable throwable, int responseStatus) {
-    if (responseStatus == 200) {
-      // TODO I think this is wrong.
-      // We must report that response status that was actually sent to end user
-      // We may change span status, but not http_status attribute
-      responseStatus = 500;
+    // try X-Forwarded-For
+    forwarded = requestHeader(request, "X-Forwarded-For");
+    if (forwarded != null) {
+      // may be split by ,
+      int endIndex = forwarded.indexOf(',');
+      if (endIndex > 0) {
+        forwarded = forwarded.substring(0, endIndex);
+      }
+      if (!forwarded.isEmpty()) {
+        return forwarded;
+      }
     }
-    onError(span, unwrapThrowable(throwable));
-    end(span, responseStatus);
+
+    // fallback to peer IP if there are no proxy headers
+    return peerHostIP(connection);
   }
 
-  protected Throwable unwrapThrowable(Throwable throwable) {
-    return throwable instanceof ExecutionException ? throwable.getCause() : throwable;
+  // VisibleForTesting
+  static String extractForwardedFor(String forwarded) {
+    int start = forwarded.toLowerCase().indexOf("for=");
+    if (start < 0) {
+      return null;
+    }
+    start += 4; // start is now the index after for=
+    if (start >= forwarded.length() - 1) { // the value after for= must not be empty
+      return null;
+    }
+    for (int i = start; i < forwarded.length() - 1; i++) {
+      char c = forwarded.charAt(i);
+      if (c == ',' || c == ';') {
+        if (i == start) { // empty string
+          return null;
+        }
+        return forwarded.substring(start, i);
+      }
+    }
+    return forwarded.substring(start);
   }
 
   private <C> SpanContext extract(final C carrier, final HttpTextFormat.Getter<C> getter) {
+    if (THREAD_PROPAGATION_DEBUGGER) {
+      debugContextLeak();
+    }
     // Using Context.ROOT here may be quite unexpected, but the reason is simple.
     // We want either span context extracted from the carrier or invalid one.
     // We DO NOT want any span context potentially lingering in the current context.
-    final Context context =
-        getPropagators().getHttpTextFormat().extract(Context.ROOT, carrier, getter);
-    final Span span = getSpan(context);
+    Context context = getPropagators().getHttpTextFormat().extract(Context.ROOT, carrier, getter);
+    Span span = getSpan(context);
     return span.getContext();
   }
 
-  private void setStatus(Span span, int status) {
+  private void debugContextLeak() {
+    Context current = Context.current();
+    if (current != Context.ROOT) {
+      log.error("Unexpected non-root current context found when extracting remote context!");
+      Span currentSpan = TracingContextUtils.getSpanWithoutDefault(current);
+      if (currentSpan != null) {
+        log.error("It contains this span: {}", currentSpan);
+      }
+      List<StackTraceElement[]> location =
+          ExecutorInstrumentationUtils.THREAD_PROPAGATION_LOCATIONS.get(current);
+      if (location != null) {
+        StringBuilder sb = new StringBuilder();
+        Iterator<StackTraceElement[]> i = location.iterator();
+        while (i.hasNext()) {
+          for (StackTraceElement ste : i.next()) {
+            sb.append("\n");
+            sb.append(ste);
+          }
+          if (i.hasNext()) {
+            sb.append("\nwhich was propagated from:");
+          }
+        }
+        log.error("a context leak was detected. it was propagated from:{}", sb);
+      }
+
+      if (FAIL_ON_CONTEXT_LEAK) {
+        throw new IllegalStateException("Context leak detected");
+      }
+    }
+  }
+
+  private static void setStatus(Span span, int status) {
     SemanticAttributes.HTTP_STATUS_CODE.set(span, status);
     // TODO status_message
     span.setStatus(HttpStatusConverter.statusFromHttpStatus(status));
   }
 
+  private static void endSpan(Span span, long timestamp) {
+    if (timestamp >= 0) {
+      span.end(EndSpanOptions.builder().setEndTimestamp(timestamp).build());
+    } else {
+      span.end();
+    }
+  }
+
   protected abstract Integer peerPort(CONNECTION connection);
 
   protected abstract String peerHostIP(CONNECTION connection);
+
+  protected abstract String flavor(CONNECTION connection, REQUEST request);
 
   protected abstract HttpTextFormat.Getter<REQUEST> getGetter();
 
@@ -255,16 +346,12 @@ public abstract class HttpServerTracer<REQUEST, CONNECTION, STORAGE> {
 
   protected abstract String method(REQUEST request);
 
+  protected abstract String requestHeader(REQUEST request, String name);
+
+  protected abstract int responseStatus(RESPONSE response);
+
   /**
    * Stores given context in the given request-response-loop storage in implementation specific way.
    */
   protected abstract void attachServerContext(Context context, STORAGE storage);
-
-  /**
-   * Returns context stored to the given request-response-loop storage by {@link
-   * #attachServerContext(Context, STORAGE)}.
-   *
-   * <p>May be null.
-   */
-  public abstract Context getServerContext(STORAGE storage);
 }

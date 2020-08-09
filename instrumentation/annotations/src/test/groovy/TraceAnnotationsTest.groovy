@@ -25,7 +25,7 @@ class TraceAnnotationsTest extends AgentTestRunner {
 
   static {
     ConfigUtils.updateConfig {
-      System.clearProperty("ota.trace.annotations")
+      System.clearProperty("otel.trace.annotations")
     }
   }
 
@@ -100,9 +100,7 @@ class TraceAnnotationsTest extends AgentTestRunner {
         span(0) {
           operationName "SayTracedHello.sayERROR"
           errored true
-          attributes {
-            errorAttributes(error.class)
-          }
+          errorEvent(error.class)
         }
       }
     }

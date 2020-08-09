@@ -88,7 +88,7 @@ class RediscalaClientTest extends AgentTestRunner {
           operationName "Set"
           spanKind CLIENT
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "redis"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
             "${SemanticAttributes.DB_STATEMENT.key()}" "Set"
           }
         }
@@ -116,7 +116,7 @@ class RediscalaClientTest extends AgentTestRunner {
           operationName "Set"
           spanKind CLIENT
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "redis"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
             "${SemanticAttributes.DB_STATEMENT.key()}" "Set"
           }
         }
@@ -126,7 +126,7 @@ class RediscalaClientTest extends AgentTestRunner {
           operationName "Get"
           spanKind CLIENT
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "redis"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
             "${SemanticAttributes.DB_STATEMENT.key()}" "Get"
           }
         }

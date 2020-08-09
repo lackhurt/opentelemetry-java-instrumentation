@@ -16,6 +16,7 @@
 
 package io.opentelemetry.auto.instrumentation.elasticsearch.transport.v6_0;
 
+import static io.opentelemetry.auto.bootstrap.instrumentation.decorator.BaseDecorator.setPeer;
 import static io.opentelemetry.auto.instrumentation.elasticsearch.transport.ElasticsearchTransportClientDecorator.DECORATE;
 
 import com.google.common.base.Joiner;
@@ -52,21 +53,21 @@ public class TransportActionListener<T extends ActionResponse> implements Action
 
   private void onRequest(final ActionRequest request) {
     if (request instanceof IndicesRequest) {
-      final IndicesRequest req = (IndicesRequest) request;
-      final String[] indices = req.indices();
+      IndicesRequest req = (IndicesRequest) request;
+      String[] indices = req.indices();
       if (indices != null && indices.length > 0) {
         span.setAttribute("elasticsearch.request.indices", Joiner.on(",").join(indices));
       }
     }
     if (request instanceof SearchRequest) {
-      final SearchRequest req = (SearchRequest) request;
-      final String[] types = req.types();
+      SearchRequest req = (SearchRequest) request;
+      String[] types = req.types();
       if (types != null && types.length > 0) {
         span.setAttribute("elasticsearch.request.search.types", Joiner.on(",").join(types));
       }
     }
     if (request instanceof DocWriteRequest) {
-      final DocWriteRequest req = (DocWriteRequest) request;
+      DocWriteRequest req = (DocWriteRequest) request;
       span.setAttribute("elasticsearch.request.write.type", req.type());
       span.setAttribute("elasticsearch.request.write.routing", req.routing());
       span.setAttribute("elasticsearch.request.write.version", req.version());
@@ -76,29 +77,29 @@ public class TransportActionListener<T extends ActionResponse> implements Action
   @Override
   public void onResponse(final T response) {
     if (response.remoteAddress() != null) {
-      span.setAttribute(
-          SemanticAttributes.NET_PEER_NAME.key(), response.remoteAddress().address().getHostName());
-      span.setAttribute(
-          SemanticAttributes.NET_PEER_IP.key(), response.remoteAddress().getAddress());
+      setPeer(
+          span,
+          response.remoteAddress().address().getHostName(),
+          response.remoteAddress().getAddress());
       span.setAttribute(SemanticAttributes.NET_PEER_PORT.key(), response.remoteAddress().getPort());
     }
 
     if (response instanceof GetResponse) {
-      final GetResponse resp = (GetResponse) response;
+      GetResponse resp = (GetResponse) response;
       span.setAttribute("elasticsearch.type", resp.getType());
       span.setAttribute("elasticsearch.id", resp.getId());
       span.setAttribute("elasticsearch.version", resp.getVersion());
     }
 
     if (response instanceof BroadcastResponse) {
-      final BroadcastResponse resp = (BroadcastResponse) response;
+      BroadcastResponse resp = (BroadcastResponse) response;
       span.setAttribute("elasticsearch.shard.broadcast.total", resp.getTotalShards());
       span.setAttribute("elasticsearch.shard.broadcast.successful", resp.getSuccessfulShards());
       span.setAttribute("elasticsearch.shard.broadcast.failed", resp.getFailedShards());
     }
 
     if (response instanceof ReplicationResponse) {
-      final ReplicationResponse resp = (ReplicationResponse) response;
+      ReplicationResponse resp = (ReplicationResponse) response;
       span.setAttribute("elasticsearch.shard.replication.total", resp.getShardInfo().getTotal());
       span.setAttribute(
           "elasticsearch.shard.replication.successful", resp.getShardInfo().getSuccessful());
@@ -111,13 +112,13 @@ public class TransportActionListener<T extends ActionResponse> implements Action
     }
 
     if (response instanceof BulkShardResponse) {
-      final BulkShardResponse resp = (BulkShardResponse) response;
+      BulkShardResponse resp = (BulkShardResponse) response;
       span.setAttribute("elasticsearch.shard.bulk.id", resp.getShardId().getId());
       span.setAttribute("elasticsearch.shard.bulk.index", resp.getShardId().getIndexName());
     }
 
     if (response instanceof BaseNodesResponse) {
-      final BaseNodesResponse resp = (BaseNodesResponse) response;
+      BaseNodesResponse resp = (BaseNodesResponse) response;
       if (resp.hasFailures()) {
         span.setAttribute("elasticsearch.node.failures", resp.failures().size());
       }

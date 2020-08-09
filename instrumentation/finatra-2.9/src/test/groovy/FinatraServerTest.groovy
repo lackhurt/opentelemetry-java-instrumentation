@@ -26,8 +26,6 @@ import io.opentelemetry.trace.attributes.SemanticAttributes
 
 import java.util.concurrent.TimeoutException
 
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.ERROR
-import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCEPTION
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.PATH_PARAM
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
 import static io.opentelemetry.trace.Span.Kind.INTERNAL
@@ -87,21 +85,20 @@ class FinatraServerTest extends HttpServerTest<HttpServer> {
 
   @Override
   void handlerSpan(TraceAssert trace, int index, Object parent, String method = "GET", ServerEndpoint endpoint = SUCCESS) {
-    def errorEndpoint = endpoint == EXCEPTION || endpoint == ERROR
     trace.span(index) {
       operationName "FinatraController"
       spanKind INTERNAL
-      errored errorEndpoint
       childOf(parent as SpanData)
+      // Finatra doesn't propagate the stack trace or exception to the instrumentation
+      // so the normal errorAttributes() method can't be used
+      errored false
       attributes {
-        // Finatra doesn't propagate the stack trace or exception to the instrumentation
-        // so the normal errorAttributes() method can't be used
       }
     }
   }
 
   @Override
-  void serverSpan(TraceAssert trace, int index, String traceID = null, String parentID = null, String method = "GET", ServerEndpoint endpoint = SUCCESS) {
+  void serverSpan(TraceAssert trace, int index, String traceID = null, String parentID = null, String method = "GET", Long responseContentLength = null, ServerEndpoint endpoint = SUCCESS) {
     trace.span(index) {
       operationName endpoint == PATH_PARAM ? "/path/:id/param" : endpoint.resolvePath(address).path
       spanKind SERVER
@@ -118,6 +115,10 @@ class FinatraServerTest extends HttpServerTest<HttpServer> {
         "${SemanticAttributes.HTTP_URL.key()}" { it == "${endpoint.resolve(address)}" || it == "${endpoint.resolveWithoutFragment(address)}" }
         "${SemanticAttributes.HTTP_METHOD.key()}" method
         "${SemanticAttributes.HTTP_STATUS_CODE.key()}" endpoint.status
+        "${SemanticAttributes.HTTP_FLAVOR.key()}" "HTTP/1.1"
+        "${SemanticAttributes.HTTP_USER_AGENT.key()}" TEST_USER_AGENT
+        "${SemanticAttributes.HTTP_CLIENT_IP.key()}" TEST_CLIENT_IP
+        // exception bodies are not yet recorded
         if (endpoint.query) {
           "$MoreAttributes.HTTP_QUERY" endpoint.query
         }

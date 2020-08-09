@@ -23,21 +23,21 @@ import io.opentelemetry.trace.attributes.SemanticAttributes;
 @Deprecated
 public abstract class DatabaseClientDecorator<CONNECTION> extends ClientDecorator {
 
-  protected abstract String dbType();
+  protected abstract String dbSystem();
 
   protected abstract String dbUser(CONNECTION connection);
 
-  protected abstract String dbInstance(CONNECTION connection);
+  protected abstract String dbName(CONNECTION connection);
 
   // TODO make abstract after implementing in all subclasses
-  protected String dbUrl(final CONNECTION connection) {
+  protected String dbConnectionString(final CONNECTION connection) {
     return null;
   }
 
   @Override
   public Span afterStart(final Span span) {
     assert span != null;
-    span.setAttribute(SemanticAttributes.DB_TYPE.key(), dbType());
+    span.setAttribute(SemanticAttributes.DB_SYSTEM.key(), dbSystem());
     return super.afterStart(span);
   }
 
@@ -46,8 +46,9 @@ public abstract class DatabaseClientDecorator<CONNECTION> extends ClientDecorato
     assert span != null;
     if (connection != null) {
       span.setAttribute(SemanticAttributes.DB_USER.key(), dbUser(connection));
-      span.setAttribute(SemanticAttributes.DB_INSTANCE.key(), dbInstance(connection));
-      span.setAttribute(SemanticAttributes.DB_URL.key(), dbUrl(connection));
+      span.setAttribute(SemanticAttributes.DB_NAME.key(), dbName(connection));
+      span.setAttribute(
+          SemanticAttributes.DB_CONNECTION_STRING.key(), dbConnectionString(connection));
     }
     return span;
   }

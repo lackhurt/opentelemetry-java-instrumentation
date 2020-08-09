@@ -39,7 +39,14 @@ Configuration parameters are passed as Java system properties (`-D` flags) or
 as environment variables (see below for full list). For example:
 ```
 java -javaagent:path/to/opentelemetry-javaagent-all.jar \
-     -Dota.exporter=zipkin
+     -Dotel.exporter=zipkin
+     -jar myapp.jar
+```
+
+External exporter jar can be specified via `otel.exporter.jar` system property:
+```
+java -javaagent:path/to/opentelemetry-javaagent-all.jar \
+     -Dotel.exporter.jar=path/to/external-exporter.jar
      -jar myapp.jar
 ```
 
@@ -54,20 +61,20 @@ behavior you may find.
 A simple wrapper for the Jaeger exporter of opentelemetry-java. It currently
 only supports gRPC as its communications protocol.
 
-| System property                  | Environment variable             | Purpose                                                              |
-|----------------------------------|----------------------------------|----------------------------------------------------------------------|
-| ota.exporter=jaeger              | OTA_EXPORTER=jaeger              | To select Jaeger exporter                                            |
-| JAEGER_ENDPOINT                  | JAEGER_ENDPOINT                  | The Jaeger endpoint to connect to. Currently only gRPC is supported. |
-| JAEGER_SERVICE_NAME              | JAEGER_SERVICE_NAME              | The service name of this JVM instance                                |
+| System property          | Environment variable     | Purpose                                                                                            |
+|--------------------------|--------------------------|----------------------------------------------------------------------------------------------------|
+| otel.exporter=jaeger     | OTEL_EXPORTER=jaeger     | To select Jaeger exporter                                                                          |
+| otel.jaeger.endpoint     | OTEL_JAEGER_ENDPOINT     | The Jaeger endpoint to connect to, default is "localhost:14250", currently only gRPC is supported. |
+| otel.jaeger.service.name | OTEL_JAEGER_SERVICE_NAME | The service name of this JVM instance, default is "unknown".                                       |
 
 #### Zipkin exporter
 A simple wrapper for the Zipkin exporter of opentelemetry-java. It POSTs json in [Zipkin format](https://zipkin.io/zipkin-api/#/default/post_spans) to a specified HTTP URL.
 
-| System property                  | Environment variable             | Purpose                                                              |
-|----------------------------------|----------------------------------|----------------------------------------------------------------------|
-| ota.exporter=zipkin              | OTA_EXPORTER=zipkin              | To select Zipkin exporter                                            |
-| otel.zipkin.endpoint             | OTEL_ZIPKIN_ENDPOINT             | The Zipkin endpoint to connect to. Currently only HTTP is supported. |
-| otel.zipkin.service.name         | OTEL_ZIPKIN_SERVICE_NAME         | The service name of this JVM instance                                |
+| System property          | Environment variable     | Purpose                                                                                                               |
+|--------------------------|--------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| otel.exporter=zipkin     | OTEL_EXPORTER=zipkin     | To select Zipkin exporter                                                                                             |
+| otel.zipkin.endpoint     | OTEL_ZIPKIN_ENDPOINT     | The Zipkin endpoint to connect to, default is "http://localhost:9411/api/v2/spans". Currently only HTTP is supported. |
+| otel.zipkin.service.name | OTEL_ZIPKIN_SERVICE_NAME | The service name of this JVM instance, default is "unknown".                                                          |
 
 #### OTLP exporter
 
@@ -75,22 +82,54 @@ A simple wrapper for the OTLP exporter of opentelemetry-java.
 
 | System property                  | Environment variable             | Purpose                                                                 |
 |----------------------------------|----------------------------------|-------------------------------------------------------------------------|
-| ota.exporter=otlp (default)      | OTA_EXPORTER=otlp                | To select OpenTelemetry exporter (default)                              |
-| ota.exporter.jar                 | OTA_EXPORTER_JAR                 | Path to the exporter fat-jar that you want to use                       |
-| otel.otlp.endpoint               | OTEL_OTLP_ENDPOINT               | The OTLP endpoint to connect to.                                        |
+| otel.exporter=otlp (default)     | OTEL_EXPORTER=otlp               | To select OpenTelemetry exporter (default)                              |
+| otel.otlp.endpoint               | OTEL_OTLP_ENDPOINT               | The OTLP endpoint to connect to, default is "localhost:55680"           |
 | otel.otlp.use.tls                | OTEL_OTLP_USE_TLS                | To use or not TLS, default is false.                                    |
 | otel.otlp.metadata               | OTEL_OTLP_METADATA               | The key-value pairs separated by semicolon to pass as request metadata. |
 | otel.otlp.span.timeout           | OTEL_OTLP_SPAN_TIMEOUT           | The max waiting time allowed to send each span batch, default is 1000.  |
+
+In order to configure the service name for the OTLP exporter, you must add `service.name` key
+to the OpenTelemetry Resource ([see below](#opentelemetry-resource)), e.g. `OTEL_RESOURCE_ATTRIBUTES=service.name=myservice`.
 
 #### Logging exporter
 
 The logging exporter simply prints the name of the span along with its
 attributes to stdout. It is used mainly for testing and debugging.
 
-| System property             | Environment variable        | Purpose                                                                      |
-|-----------------------------|-----------------------------|------------------------------------------------------------------------------|
-| ota.exporter=logging        | OTA_EXPORTER=logging        | To select logging exporter                                                   |
-| ota.exporter.logging.prefix | OTA_EXPORTER_LOGGING_PREFIX | An optional string that is printed in front of the span name and attributes. |
+| System property              | Environment variable         | Purpose                                                                      |
+|------------------------------|------------------------------|------------------------------------------------------------------------------|
+| otel.exporter=logging        | OTEL_EXPORTER=logging        | To select logging exporter                                                   |
+| otel.exporter.logging.prefix | OTEL_EXPORTER_LOGGING_PREFIX | An optional string that is printed in front of the span name and attributes. |
+
+#### Propagator
+
+The propagator controls which distributed tracing header format is used.
+
+If this is set to a comma-delimited list of the values, the multi-propagator will be used.
+The multi-propagator will try to extract the context from incoming requests using each of the configured propagator formats (in order), stopping after the first successful context extraction.
+The multi-propagator will inject the context into outgoing requests using all the configured propagator formats.
+
+| System property  | Environment variable | Purpose                                                                                                     |
+|------------------|----------------------|-------------------------------------------------------------------------------------------------------------|
+| otel.propagators | OTEL_PROPAGATORS     | Default is "tracecontext" (W3C). Other supported values are "b3", "b3single", "jaeger", "ottracer", "xray". |
+
+#### OpenTelemetry Resource
+
+The [OpenTelemetry Resource](https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/resource/sdk.md)
+is a representation of the entity producing telemetry.
+
+| System property          | Environment variable     | Purpose                                                                      |
+|--------------------------|--------------------------|------------------------------------------------------------------------------|
+| otel.resource.attributes | OTEL_RESOURCE_ATTRIBUTES | Used to specify resource attributes in format: key1=val1,key2=val2,key3=val3 |
+
+#### Peer service name
+
+The [peer service name](https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/trace/semantic_conventions/span-general.md#general-remote-service-attributes) is
+the name of a remote service that is being connected to. It corresponds to `service.name` in the [Resource](https://github.com/open-telemetry/opentelemetry-specification/tree/master/specification/resource/semantic_conventions#service) for the local service.
+
+| System property                     | Environment variable              | Purpose                                                                      |
+|------------------------------------|------------------------------------|------------------------------------------------------------------------------|
+| otel.endpoint.peer.service.mapping | OTEL_ENDPOINT_PEER_SERVICE_MAPPING | Used to specify a mapping from hostnames or IP addresses to peer services, as a comma separated list of host=name pairs. The peer service name will be added as an attribute to a span whose host or IP match the mapping. For example, if set to 1.2.3.4=cats-service,dogs-abcdef123.serverlessapis.com=dogs-api, requests to `1.2.3.4` will have a `peer.service` attribute of `cats-service` and requests to `dogs-abcdef123.serverlessapis.com` will have one of `dogs-api` |
 
 #### Batch span processor
 
@@ -128,7 +167,7 @@ The OpenTelemetry API exposes SPI [hooks](https://github.com/open-telemetry/open
 for customizing its behavior, such as the `Resource` attached to spans or the `Sampler`.
 
 Because the auto instrumentation runs in a separate classpath than the instrumented application, it is not possible for customization in the application to take advantage of this customization. In order to provide such customization, you can
-provide the path to a JAR file including an SPI implementation using the system property `ota.initializer.jar`. Note that this JAR will need to shade the OpenTelemetry API in the same way as the agent does. The simplest way to do this is to use the same shading configuration as the agent from [here](https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/cfade733b899a2f02cfec7033c6a1efd7c54fd8b/java-agent/java-agent.gradle#L39). In addition, you will have to specify the `io.opentelemetry.auto.shaded.io.opentelemetry.trace.spi.TraceProvider` to the name of the class that implements the SPI.
+provide the path to a JAR file including an SPI implementation using the system property `otel.initializer.jar`. Note that this JAR will need to shade the OpenTelemetry API in the same way as the agent does. The simplest way to do this is to use the same shading configuration as the agent from [here](https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/cfade733b899a2f02cfec7033c6a1efd7c54fd8b/java-agent/java-agent.gradle#L39). In addition, you will have to specify the `io.opentelemetry.auto.shaded.io.opentelemetry.trace.spi.TraceProvider` to the name of the class that implements the SPI.
 
 ## Supported Java libraries and frameworks
 
@@ -137,8 +176,9 @@ provide the path to a JAR file including an SPI implementation using the system 
 | [Akka HTTP](https://doc.akka.io/docs/akka-http/current/index.html)                                                                    | 10.0+                          |
 | [Apache HttpAsyncClient](https://hc.apache.org/index.html)                                                                            | 4.0+                           |
 | [Apache HttpClient](https://hc.apache.org/index.html)                                                                                 | 2.0+                           |
+| [Armeria](https://armeria.dev)                                                                                                        | 0.99.8+                        |
 | [AWS SDK](https://aws.amazon.com/sdk-for-java/)                                                                                       | 1.11.x and 2.2.0+              |
-| [Cassandra Driver](https://github.com/datastax/java-driver)                                                                           | 3.0+ (not including 4.x yet)   |
+| [Cassandra Driver](https://github.com/datastax/java-driver)                                                                           | 3.0+                           |
 | [Couchbase Client](https://github.com/couchbase/couchbase-java-client)                                                                | 2.0+ (not including 3.x yet)   |
 | [Dropwizard Views](https://www.dropwizard.io/en/latest/manual/views.html)                                                             | 0.7+                           |
 | [Elasticsearch API](https://www.elastic.co/guide/en/elasticsearch/client/java-api/current/index.html)                                 | 2.0+ (not including 7.x yet)   |
@@ -152,7 +192,6 @@ provide the path to a JAR file including an SPI implementation using the system 
 | [Hibernate](https://github.com/hibernate/hibernate-orm)                                                                               | 3.3+                           |
 | [HttpURLConnection](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/net/HttpURLConnection.html)                     | Java 7+                        |
 | [Hystrix](https://github.com/Netflix/Hystrix)                                                                                         | 1.4+                           |
-| [java.util.logging](https://docs.oracle.com/en/java/javase/11/docs/api/java.logging/java/util/logging/package-summary.html)           | Java 7+                        |
 | [JAX-RS](https://javaee.github.io/javaee-spec/javadocs/javax/ws/rs/package-summary.html)                                              | 0.5+                           |
 | [JAX-RS Client](https://javaee.github.io/javaee-spec/javadocs/javax/ws/rs/client/package-summary.html)                                | 2.0+                           |
 | [JDBC](https://docs.oracle.com/en/java/javase/11/docs/api/java.sql/java/sql/package-summary.html)                                     | Java 7+                        |
@@ -161,18 +200,16 @@ provide the path to a JAR file including an SPI implementation using the system 
 | [JMS](https://javaee.github.io/javaee-spec/javadocs/javax/jms/package-summary.html)                                                   | 1.1+                           |
 | [JSP](https://javaee.github.io/javaee-spec/javadocs/javax/servlet/jsp/package-summary.html)                                           | 2.3+                           |
 | [Kafka](https://kafka.apache.org/20/javadoc/overview-summary.html)                                                                    | 0.11+                          |
-| [khttp](https://khttp.readthedocs.io)                                                                                                 | 0.1.0+                         |
-| [Kubernetes](https://github.com/kubernetes-client/java)                                                                               | 7.0.0+                         |
+| [khttp](https://khttp.readthedocs.io)                                                                                                 | 0.1+                           |
+| [Kubernetes Client](https://github.com/kubernetes-client/java)                                                                        | 7.0+                           |
 | [Lettuce](https://github.com/lettuce-io/lettuce-core)                                                                                 | 4.0+                           |
-| [Log4j](https://logging.apache.org/log4j/2.x/)                                                                                        | 1.1+                           |
-| [Logback](https://github.com/qos-ch/logback)                                                                                          | 1.0+                           |
 | [MongoDB Drivers](https://mongodb.github.io/mongo-java-driver/)                                                                       | 3.3+                           |
 | [Netty](https://github.com/netty/netty)                                                                                               | 3.8+                           |
 | [OkHttp](https://github.com/square/okhttp/)                                                                                           | 3.0+                           |
 | [Play](https://github.com/playframework/playframework)                                                                                | 2.3+ (not including 2.8.x yet) |
 | [Play WS](https://github.com/playframework/play-ws)                                                                                   | 1.0+                           |
 | [RabbitMQ Client](https://github.com/rabbitmq/rabbitmq-java-client)                                                                   | 2.7+                           |
-| [Ratpack](https://github.com/ratpack/ratpack)                                                                                         | 1.5+                           |
+| [Ratpack](https://github.com/ratpack/ratpack)                                                                                         | 1.4+                           |
 | [Reactor](https://github.com/reactor/reactor-core)                                                                                    | 3.1+                           |
 | [Rediscala](https://github.com/etaty/rediscala)                                                                                       | 1.8+                           |
 | [RMI](https://docs.oracle.com/en/java/javase/11/docs/api/java.rmi/java/rmi/package-summary.html)                                      | Java 7+                        |
@@ -196,8 +233,8 @@ For this reason the following instrumentations are disabled by default:
 - `servlet-filter` which creates spans around Servlet Filter methods.
 - `servlet-service` which creates spans around Servlet methods.
 
-To enable them, add `ota.integration.<name>.enabled` system property:
-`-Dota.integration.jdbc-datasource.enabled=true`
+To enable them, add `otel.integration.<name>.enabled` system property:
+`-Dotel.integration.jdbc-datasource.enabled=true`
 
 #### Grizzly instrumentation
 
@@ -207,7 +244,11 @@ Servlet-based applications, you get better experience from Servlet-specific
 support. As these two instrumentations conflict with each other, more generic
 instrumentation for Grizzly http server is disabled by default. If needed,
 you can enable it by add the following system property:
-`-Dota.integration.grizzly.enabled=true`
+`-Dotel.integration.grizzly.enabled=true`
+
+### Suppressing specific auto-instrumentation
+
+See [Suppressing specific auto-instrumentation](docs/suppressing-instrumentation.md)
 
 ## Manually instrumenting
 
@@ -246,16 +287,14 @@ public class MyClass {
 Each time the application invokes the annotated method, it creates a span
 that denote its duration and provides any thrown exceptions.
 
-#### Configuration
+#### Suppressing `@WithSpan` instrumentation
 
-The `@WithSpan` annotation requires code changes to implement. You can
-disable the annotation at runtime via the exclude configuration or
-environment variables:
+This is useful in case you have code that is over-instrumented using `@WithSpan`,
+and you want to suppress some of them without modifying the code.
 
-| System property                  | Environment variable             | Purpose                                                              |
-|----------------------------------|----------------------------------|----------------------------------------------------------------------|
-| trace.classes.exclude            | TRACE_CLASSES_EXCLUDE            | Exclude classes with the `@WithSpan` annotation                      |
-| trace.methods.exclude            | TRACE_METHODS_EXCLUDE            | Exclude methods with the `@WithSpan` annotation                      |
+| System property                 | Environment variable            | Purpose                                                                                                                                  |
+|---------------------------------|---------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| trace.annotated.methods.exclude | TRACE_ANNOTATED_METHODS_EXCLUDE | Suppress `@WithSpan` instrumentation for specific methods, format is "my.package.MyClass1[method1,method2];my.package.MyClass2[method3]" |
 
 
 ## Troubleshooting
@@ -269,35 +308,4 @@ Debug logging negatively impacts the performance of your application.
 
 ## Roadmap to 1.0 (GA)
 
-It is our goal to release 1.0 (GA) of the auto-instrumentation agent during the first wave of
-OpenTelemetry 1.0 (GA) releases, along with as many manual instrumentation libraries as possible.
-
-High-level roadmap:
-
-* Conform with all OpenTelemetry specifications
-  * Implement all applicable semantic attributes
-    * Clearly document additional attributes not defined in specification
-  * Support standard configuration properties (e.g. exporters, propagators, samplers)
-  * Capture standard metrics (still TBD, e.g.
-      [opentelemetry-specification#522](https://github.com/open-telemetry/opentelemetry-specification/issues/522))
-  * See issues with label
-    [specification](https://github.com/open-telemetry/opentelemetry-java-instrumentation/labels/specification)
-* Great documentation
-  * See issues with label
-    [documentation](https://github.com/open-telemetry/opentelemetry-java-instrumentation/labels/documentation)
-* Build out manual instrumentation libraries for existing auto-instrumentation
-  * Share code and tests between manual and auto-instrumentation
-  * See issue
-    [#45](https://github.com/open-telemetry/opentelemetry-java-instrumentation/issues/45)
-* Good support for vendors to extend the agent
-  * Including ability for any user to write their own auto-instrumentation
-  * See issues with label
-    [packaging](https://github.com/open-telemetry/opentelemetry-java-instrumentation/labels/packaging)
-* Better smoke test harness and more smoke tests
-  * See issue
-    [#298](https://github.com/open-telemetry/opentelemetry-java-instrumentation/issues/298)
-* Benchmarking and tuning (both runtime and startup)
-* Address sporadic test failures
-  * See issues with label
-    [sporadic test failure](https://github.com/open-telemetry/opentelemetry-java-instrumentation/labels/sporadic%20test%20failure)
-* Speed up CI build feedback
+See [GA Requirements](docs/ga-requirements.md)

@@ -37,8 +37,7 @@ public class TagSettingAsyncListener implements AsyncListener {
   @Override
   public void onComplete(final AsyncEvent event) {
     if (responseHandled.compareAndSet(false, true)) {
-      servletHttpServerTracer.end(
-          span, ((HttpServletResponse) event.getSuppliedResponse()).getStatus());
+      servletHttpServerTracer.end(span, (HttpServletResponse) event.getSuppliedResponse());
     }
   }
 
@@ -53,9 +52,7 @@ public class TagSettingAsyncListener implements AsyncListener {
   public void onError(final AsyncEvent event) {
     if (responseHandled.compareAndSet(false, true)) {
       servletHttpServerTracer.endExceptionally(
-          span,
-          event.getThrowable(),
-          ((HttpServletResponse) event.getSuppliedResponse()).getStatus());
+          span, event.getThrowable(), (HttpServletResponse) event.getSuppliedResponse());
     }
   }
 

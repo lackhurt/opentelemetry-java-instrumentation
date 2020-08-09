@@ -75,12 +75,10 @@ public final class JSPInstrumentation extends Instrumenter.Default {
   public static class HttpJspPageAdvice {
 
     @Advice.OnMethodEnter(suppress = Throwable.class)
-    public static SpanWithScope onEnter(
-        @Advice.This final Object obj, @Advice.Argument(0) final HttpServletRequest req) {
-      final Span span =
+    public static SpanWithScope onEnter(@Advice.Argument(0) final HttpServletRequest req) {
+      Span span =
           TRACER
               .spanBuilder(DECORATE.spanNameOnRender(req))
-              .setAttribute("span.origin.type", obj.getClass().getSimpleName())
               .setAttribute("servlet.context", req.getContextPath())
               .startSpan();
       DECORATE.afterStart(span);
@@ -91,7 +89,7 @@ public final class JSPInstrumentation extends Instrumenter.Default {
     @Advice.OnMethodExit(onThrowable = Throwable.class, suppress = Throwable.class)
     public static void stopSpan(
         @Advice.Enter final SpanWithScope spanWithScope, @Advice.Thrown final Throwable throwable) {
-      final Span span = spanWithScope.getSpan();
+      Span span = spanWithScope.getSpan();
       DECORATE.onError(span, throwable);
       DECORATE.beforeFinish(span);
       span.end();

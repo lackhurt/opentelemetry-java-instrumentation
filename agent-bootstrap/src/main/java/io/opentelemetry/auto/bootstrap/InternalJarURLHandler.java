@@ -29,10 +29,12 @@ import java.net.URLStreamHandler;
 import java.security.Permission;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class InternalJarURLHandler extends URLStreamHandler {
+
+  private static final Logger log = LoggerFactory.getLogger(InternalJarURLHandler.class);
 
   private static final WeakReference<Pair<String, JarEntry>> NULL = new WeakReference<>(null);
 
@@ -59,7 +61,7 @@ public class InternalJarURLHandler extends URLStreamHandler {
 
   @Override
   protected URLConnection openConnection(final URL url) throws IOException {
-    final String filename = url.getFile();
+    String filename = url.getFile();
     if ("/".equals(filename)) {
       // "/" is used as the default url of the jar
       // This is called by the SecureClassLoader trying to obtain permissions

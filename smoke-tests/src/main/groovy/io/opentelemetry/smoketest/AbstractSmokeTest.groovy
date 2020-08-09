@@ -35,7 +35,7 @@ abstract class AbstractSmokeTest extends Specification {
   protected Process testedProcess
 
   @Shared
-  protected String exporterPath = System.getProperty("ota.exporter.jar")
+  protected String exporterPath = System.getProperty("otel.exporter.jar")
 
   @Shared
   protected File logfile
@@ -74,7 +74,7 @@ abstract class AbstractSmokeTest extends Specification {
   }
 
   String javaPath() {
-    final String separator = System.getProperty("file.separator")
+    String separator = System.getProperty("file.separator")
     return System.getProperty("java.home") + separator + "bin" + separator + "java"
   }
 

@@ -16,38 +16,22 @@
 
 package io.opentelemetry.auto.instrumentation.play.v2_3;
 
-import static io.opentelemetry.auto.bootstrap.instrumentation.decorator.BaseDecorator.extract;
-import static io.opentelemetry.auto.instrumentation.play.v2_3.PlayHeaders.GETTER;
-import static io.opentelemetry.auto.instrumentation.play.v2_3.PlayHttpServerDecorator.DECORATE;
-import static io.opentelemetry.auto.instrumentation.play.v2_3.PlayHttpServerDecorator.TRACER;
+import static io.opentelemetry.auto.instrumentation.play.v2_3.PlayTracer.TRACER;
 import static io.opentelemetry.trace.TracingContextUtils.currentContextWith;
 
 import io.opentelemetry.auto.instrumentation.api.SpanWithScope;
 import io.opentelemetry.trace.Span;
-import io.opentelemetry.trace.SpanContext;
-import io.opentelemetry.trace.attributes.SemanticAttributes;
 import net.bytebuddy.asm.Advice;
 import play.api.mvc.Action;
+import play.api.mvc.Headers;
 import play.api.mvc.Request;
 import play.api.mvc.Result;
 import scala.concurrent.Future;
 
 public class PlayAdvice {
   @Advice.OnMethodEnter(suppress = Throwable.class)
-  public static SpanWithScope onEnter(@Advice.Argument(0) final Request req) {
-    final Span.Builder spanBuilder = TRACER.spanBuilder("play.request");
-    if (!TRACER.getCurrentSpan().getContext().isValid()) {
-      final SpanContext extractedContext = extract(req.headers(), GETTER);
-      if (extractedContext.isValid()) {
-        spanBuilder.setParent(extractedContext);
-      }
-    } else {
-      // An upstream framework (e.g. akka-http, netty) has already started the span.
-      // Do not extract the context.
-    }
-    final Span span = spanBuilder.startSpan();
-    DECORATE.afterStart(span);
-    DECORATE.onConnection(span, req);
+  public static SpanWithScope onEnter(@Advice.Argument(0) final Request<?> req) {
+    Span span = TRACER.startSpan("play.request");
 
     return new SpanWithScope(span, currentContextWith(span));
   }
@@ -57,28 +41,26 @@ public class PlayAdvice {
       @Advice.Enter final SpanWithScope playControllerScope,
       @Advice.This final Object thisAction,
       @Advice.Thrown final Throwable throwable,
-      @Advice.Argument(0) final Request req,
+      @Advice.Argument(0) final Request<?> req,
       @Advice.Return(readOnly = false) final Future<Result> responseFuture) {
-    final Span playControllerSpan = playControllerScope.getSpan();
-
-    // Call onRequest on return after tags are populated.
-    DECORATE.onRequest(playControllerSpan, req);
+    Span playControllerSpan = playControllerScope.getSpan();
 
     if (throwable == null) {
       responseFuture.onComplete(
           new RequestCompleteCallback(playControllerSpan),
-          ((Action) thisAction).executionContext());
+          ((Action<?>) thisAction).executionContext());
     } else {
-      DECORATE.onError(playControllerSpan, throwable);
-      playControllerSpan.setAttribute(SemanticAttributes.HTTP_STATUS_CODE.key(), 500);
-      DECORATE.beforeFinish(playControllerSpan);
-      playControllerSpan.end();
+      TRACER.endExceptionally(playControllerSpan, throwable);
     }
     playControllerScope.closeScope();
     // span finished in RequestCompleteCallback
 
-    final Span rootSpan = TRACER.getCurrentSpan();
     // set the span name on the upstream akka/netty span
-    DECORATE.onRequest(rootSpan, req);
+    TRACER.updateSpanName(TRACER.getCurrentServerSpan(), req);
+  }
+
+  // With this muzzle prevents this instrumentation from applying on Play 2.4+
+  public static void muzzleCheck(Headers headers) {
+    headers.get("aKey");
   }
 }

@@ -64,8 +64,8 @@ class Jedis30ClientTest extends AgentTestRunner {
           operationName "SET"
           spanKind CLIENT
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "redis"
-            "${SemanticAttributes.DB_URL.key()}" "localhost:$port"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "localhost:$port"
             "${SemanticAttributes.DB_STATEMENT.key()}" "SET"
           }
         }
@@ -87,8 +87,8 @@ class Jedis30ClientTest extends AgentTestRunner {
           operationName "SET"
           spanKind CLIENT
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "redis"
-            "${SemanticAttributes.DB_URL.key()}" "localhost:$port"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "localhost:$port"
             "${SemanticAttributes.DB_STATEMENT.key()}" "SET"
           }
         }
@@ -98,8 +98,8 @@ class Jedis30ClientTest extends AgentTestRunner {
           operationName "GET"
           spanKind CLIENT
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "redis"
-            "${SemanticAttributes.DB_URL.key()}" "localhost:$port"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "localhost:$port"
             "${SemanticAttributes.DB_STATEMENT.key()}" "GET"
           }
         }
@@ -121,8 +121,8 @@ class Jedis30ClientTest extends AgentTestRunner {
           operationName "SET"
           spanKind CLIENT
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "redis"
-            "${SemanticAttributes.DB_URL.key()}" "localhost:$port"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "localhost:$port"
             "${SemanticAttributes.DB_STATEMENT.key()}" "SET"
           }
         }
@@ -132,8 +132,8 @@ class Jedis30ClientTest extends AgentTestRunner {
           operationName "RANDOMKEY"
           spanKind CLIENT
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "redis"
-            "${SemanticAttributes.DB_URL.key()}" "localhost:$port"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "redis"
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "localhost:$port"
             "${SemanticAttributes.DB_STATEMENT.key()}" "RANDOMKEY"
           }
         }

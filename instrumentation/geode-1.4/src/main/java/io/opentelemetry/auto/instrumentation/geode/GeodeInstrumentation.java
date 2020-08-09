@@ -61,7 +61,7 @@ public class GeodeInstrumentation extends Instrumenter.Default {
 
   @Override
   public Map<? extends ElementMatcher<? super MethodDescription>, String> transformers() {
-    final Map<ElementMatcher<? super MethodDescription>, String> map = new HashMap<>(2);
+    Map<ElementMatcher<? super MethodDescription>, String> map = new HashMap<>(2);
     map.put(
         isMethod()
             .and(
@@ -93,11 +93,11 @@ public class GeodeInstrumentation extends Instrumenter.Default {
       if (CallDepthThreadLocalMap.incrementCallDepth(Region.class) > 0) {
         return null;
       }
-      final Span span =
+      Span span =
           TRACER
               .spanBuilder(method.getName())
               .setSpanKind(CLIENT)
-              .setAttribute(SemanticAttributes.DB_INSTANCE.key(), thiz.getName())
+              .setAttribute(SemanticAttributes.DB_NAME.key(), thiz.getName())
               .startSpan();
       DECORATE.afterStart(span);
       return new SpanWithScope(span, currentContextWith(span));
@@ -110,7 +110,7 @@ public class GeodeInstrumentation extends Instrumenter.Default {
         return;
       }
       try {
-        final Span span = spanWithScope.getSpan();
+        Span span = spanWithScope.getSpan();
         DECORATE.onError(span, throwable);
         DECORATE.beforeFinish(span);
         span.end();
@@ -130,11 +130,11 @@ public class GeodeInstrumentation extends Instrumenter.Default {
       if (CallDepthThreadLocalMap.incrementCallDepth(Region.class) > 0) {
         return null;
       }
-      final Span span =
+      Span span =
           TRACER
               .spanBuilder(method.getName())
               .setSpanKind(CLIENT)
-              .setAttribute(SemanticAttributes.DB_INSTANCE.key(), thiz.getName())
+              .setAttribute(SemanticAttributes.DB_NAME.key(), thiz.getName())
               .setAttribute(SemanticAttributes.DB_STATEMENT.key(), query)
               .startSpan();
       DECORATE.afterStart(span);
@@ -148,7 +148,7 @@ public class GeodeInstrumentation extends Instrumenter.Default {
         return;
       }
       try {
-        final Span span = spanWithScope.getSpan();
+        Span span = spanWithScope.getSpan();
         DECORATE.onError(span, throwable);
         DECORATE.beforeFinish(span);
         span.end();

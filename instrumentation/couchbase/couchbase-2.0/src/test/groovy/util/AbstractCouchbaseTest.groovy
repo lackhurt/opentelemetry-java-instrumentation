@@ -126,9 +126,9 @@ abstract class AbstractCouchbaseTest extends AgentTestRunner {
         childOf((SpanData) parentSpan)
       }
       attributes {
-        "${SemanticAttributes.DB_TYPE.key()}" "couchbase"
+        "${SemanticAttributes.DB_SYSTEM.key()}" "couchbase"
         if (bucketName != null) {
-          "${SemanticAttributes.DB_INSTANCE.key()}" bucketName
+          "${SemanticAttributes.DB_NAME.key()}" bucketName
         }
         "${SemanticAttributes.DB_STATEMENT.key()}" name
       }

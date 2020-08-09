@@ -18,11 +18,14 @@ package io.opentelemetry.auto.tooling;
 
 import io.opentelemetry.auto.bootstrap.PatchLogger;
 import io.opentelemetry.auto.bootstrap.WeakCache;
-import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.matcher.ElementMatcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public final class ClassLoaderMatcher {
+
+  private static final Logger log = LoggerFactory.getLogger(ClassLoaderMatcher.class);
+
   public static final ClassLoader BOOTSTRAP_CLASSLOADER = null;
 
   /** A private constructor that must not be invoked. */
@@ -136,7 +139,7 @@ public final class ClassLoaderMatcher {
     }
 
     private boolean hasResources(final ClassLoader cl) {
-      for (final String resource : resources) {
+      for (String resource : resources) {
         if (cl.getResource(resource) == null) {
           return false;
         }
@@ -150,11 +153,11 @@ public final class ClassLoaderMatcher {
         // Can't match the bootstrap classloader.
         return false;
       }
-      final Boolean cached;
+      Boolean cached;
       if ((cached = cache.getIfPresent(cl)) != null) {
         return cached;
       }
-      final boolean value = hasResources(cl);
+      boolean value = hasResources(cl);
       cache.put(cl, value);
       return value;
     }

@@ -15,6 +15,7 @@
  */
 
 import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.trace.attributes.SemanticAttributes
 import unshaded.io.grpc.Context
 import unshaded.io.opentelemetry.OpenTelemetry
 import unshaded.io.opentelemetry.context.Scope
@@ -63,7 +64,7 @@ class TracerTest extends AgentTestRunner {
   def "capture span with implicit parent using Tracer.withSpan()"() {
     when:
     def tracer = OpenTelemetry.getTracerProvider().get("test")
-    final Span parentSpan = tracer.spanBuilder("parent").startSpan()
+    Span parentSpan = tracer.spanBuilder("parent").startSpan()
     Scope parentScope = tracer.withSpan(parentSpan)
 
     def testSpan = tracer.spanBuilder("test").startSpan()
@@ -94,7 +95,7 @@ class TracerTest extends AgentTestRunner {
   def "capture span with implicit parent using TracingContextUtils.currentContextWith()"() {
     when:
     def tracer = OpenTelemetry.getTracerProvider().get("test")
-    final Span parentSpan = tracer.spanBuilder("parent").startSpan()
+    Span parentSpan = tracer.spanBuilder("parent").startSpan()
     Scope parentScope = currentContextWith(parentSpan)
 
     def testSpan = tracer.spanBuilder("test").startSpan()
@@ -125,7 +126,7 @@ class TracerTest extends AgentTestRunner {
   def "capture span with implicit parent using TracingContextUtils.withSpan and ContextUtils.withScopedContext()"() {
     when:
     def tracer = OpenTelemetry.getTracerProvider().get("test")
-    final Span parentSpan = tracer.spanBuilder("parent").startSpan()
+    Span parentSpan = tracer.spanBuilder("parent").startSpan()
     def parentContext = withSpan(parentSpan, Context.current())
     Scope parentScope = withScopedContext(parentContext)
 
@@ -159,6 +160,34 @@ class TracerTest extends AgentTestRunner {
     def tracer = OpenTelemetry.getTracerProvider().get("test")
     def parentSpan = tracer.spanBuilder("parent").startSpan()
     def testSpan = tracer.spanBuilder("test").setParent(parentSpan).startSpan()
+    testSpan.end()
+    parentSpan.end()
+
+    then:
+    assertTraces(1) {
+      trace(0, 2) {
+        span(0) {
+          operationName "parent"
+          parent()
+          attributes {
+          }
+        }
+        span(1) {
+          operationName "test"
+          childOf span(0)
+          attributes {
+          }
+        }
+      }
+    }
+  }
+
+  def "capture span with explicit parent from context"() {
+    when:
+    def tracer = OpenTelemetry.getTracerProvider().get("test")
+    def parentSpan = tracer.spanBuilder("parent").startSpan()
+    def context = withSpan(parentSpan, Context.current())
+    def testSpan = tracer.spanBuilder("test").setParent(context).startSpan()
     testSpan.end()
     parentSpan.end()
 
@@ -252,6 +281,32 @@ class TracerTest extends AgentTestRunner {
         span(0) {
           operationName "test2"
           parent()
+          attributes {
+          }
+        }
+      }
+    }
+  }
+
+  def "capture exception()"() {
+    when:
+    def tracer = OpenTelemetry.getTracerProvider().get("test")
+    def testSpan = tracer.spanBuilder("test").startSpan()
+    testSpan.recordException(new IllegalStateException())
+    testSpan.end()
+
+    then:
+    assertTraces(1) {
+      trace(0, 1) {
+        span(0) {
+          operationName "test"
+          event(0) {
+            eventName("exception")
+            attributes {
+              "${SemanticAttributes.EXCEPTION_TYPE.key()}" "java.lang.IllegalStateException"
+              "${SemanticAttributes.EXCEPTION_STACKTRACE.key()}" String
+            }
+          }
           attributes {
           }
         }

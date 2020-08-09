@@ -17,11 +17,9 @@
 package io.opentelemetry.auto.instrumentation.httpurlconnection;
 
 import static io.opentelemetry.auto.instrumentation.httpurlconnection.HeadersInjectAdapter.SETTER;
-import static io.opentelemetry.auto.instrumentation.httpurlconnection.HttpUrlConnectionDecorator.DECORATE;
-import static io.opentelemetry.auto.instrumentation.httpurlconnection.HttpUrlConnectionDecorator.TRACER;
+import static io.opentelemetry.auto.instrumentation.httpurlconnection.HttpUrlConnectionTracer.TRACER;
 import static io.opentelemetry.auto.tooling.bytebuddy.matcher.AgentElementMatchers.extendsClass;
 import static io.opentelemetry.auto.tooling.matcher.NameMatchers.namedOneOf;
-import static io.opentelemetry.trace.Span.Kind.CLIENT;
 import static io.opentelemetry.trace.TracingContextUtils.currentContextWith;
 import static io.opentelemetry.trace.TracingContextUtils.withSpan;
 import static java.util.Collections.singletonMap;
@@ -67,7 +65,7 @@ public class HttpUrlConnectionInstrumentation extends Instrumenter.Default {
   @Override
   public String[] helperClassNames() {
     return new String[] {
-      packageName + ".HttpUrlConnectionDecorator",
+      packageName + ".HttpUrlConnectionTracer",
       packageName + ".HeadersInjectAdapter",
       HttpUrlConnectionInstrumentation.class.getName() + "$HttpUrlState",
       HttpUrlConnectionInstrumentation.class.getName() + "$HttpUrlState$1",
@@ -93,20 +91,20 @@ public class HttpUrlConnectionInstrumentation extends Instrumenter.Default {
         @Advice.This final HttpURLConnection thiz,
         @Advice.FieldValue("connected") final boolean connected) {
 
-      final int callDepth = CallDepthThreadLocalMap.incrementCallDepth(HttpURLConnection.class);
+      int callDepth = CallDepthThreadLocalMap.incrementCallDepth(HttpURLConnection.class);
       if (callDepth > 0) {
         return null;
       }
 
-      final ContextStore<HttpURLConnection, HttpUrlState> contextStore =
+      ContextStore<HttpURLConnection, HttpUrlState> contextStore =
           InstrumentationContext.get(HttpURLConnection.class, HttpUrlState.class);
-      final HttpUrlState state = contextStore.putIfAbsent(thiz, HttpUrlState.FACTORY);
+      HttpUrlState state = contextStore.putIfAbsent(thiz, HttpUrlState.FACTORY);
 
       synchronized (state) {
         if (!state.hasSpan() && !state.isFinished()) {
-          final Span span = state.start(thiz);
+          Span span = state.start(thiz);
           if (!connected) {
-            final Context context = withSpan(span, Context.current());
+            Context context = withSpan(span, Context.current());
             OpenTelemetry.getPropagators().getHttpTextFormat().inject(context, thiz, SETTER);
           }
         }
@@ -152,16 +150,8 @@ public class HttpUrlConnectionInstrumentation extends Instrumenter.Default {
     private volatile boolean finished = false;
 
     public Span start(final HttpURLConnection connection) {
-      span =
-          TRACER
-              .spanBuilder(DECORATE.spanNameForRequest(connection))
-              .setSpanKind(CLIENT)
-              .startSpan();
-      try (final Scope scope = currentContextWith(span)) {
-        DECORATE.afterStart(span);
-        DECORATE.onRequest(span, connection);
-        return span;
-      }
+      span = TRACER.startSpan(connection);
+      return span;
     }
 
     public boolean hasSpan() {
@@ -173,10 +163,8 @@ public class HttpUrlConnectionInstrumentation extends Instrumenter.Default {
     }
 
     public void finishSpan(final Throwable throwable) {
-      try (final Scope scope = currentContextWith(span)) {
-        DECORATE.onError(span, throwable);
-        DECORATE.beforeFinish(span);
-        span.end();
+      try (Scope scope = currentContextWith(span)) {
+        TRACER.endExceptionally(span, throwable);
         span = null;
         finished = true;
       }
@@ -189,10 +177,8 @@ public class HttpUrlConnectionInstrumentation extends Instrumenter.Default {
        * (e.g. breaks getOutputStream).
        */
       if (responseCode > 0) {
-        try (final Scope scope = currentContextWith(span)) {
-          DECORATE.onResponse(span, responseCode);
-          DECORATE.beforeFinish(span);
-          span.end();
+        try (Scope scope = currentContextWith(span)) {
+          TRACER.end(span, responseCode);
           span = null;
           finished = true;
         }

@@ -25,10 +25,13 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public final class CommonTaskExecutor extends AbstractExecutorService {
+
+  private static final Logger log = LoggerFactory.getLogger(CommonTaskExecutor.class);
+
   public static final CommonTaskExecutor INSTANCE = new CommonTaskExecutor();
   private static final long SHUTDOWN_WAIT_SECONDS = 5;
 
@@ -79,8 +82,8 @@ public final class CommonTaskExecutor extends AbstractExecutorService {
       log.warn("Periodic task scheduler is shutdown. Will not run: {}", name);
     } else {
       try {
-        final PeriodicTask<T> periodicTask = new PeriodicTask<>(task, target);
-        final ScheduledFuture<?> future =
+        PeriodicTask<T> periodicTask = new PeriodicTask<>(task, target);
+        ScheduledFuture<?> future =
             executorService.scheduleAtFixedRate(periodicTask, initialDelay, period, unit);
         periodicTask.setFuture(future);
         return future;
@@ -164,7 +167,7 @@ public final class CommonTaskExecutor extends AbstractExecutorService {
 
     @Override
     public void run() {
-      final T t = target.get();
+      T t = target.get();
       if (t != null) {
         task.run(t);
       } else if (future != null) {
@@ -178,8 +181,10 @@ public final class CommonTaskExecutor extends AbstractExecutorService {
   }
 
   // Unscheduled future
-  @Slf4j
   private static class UnscheduledFuture implements ScheduledFuture<Object> {
+
+    private static final Logger log = LoggerFactory.getLogger(UnscheduledFuture.class);
+
     private final String name;
 
     public UnscheduledFuture(final String name) {

@@ -40,8 +40,8 @@ public class JdbcTracer extends DatabaseClientTracer<DBInfo, String> {
   }
 
   @Override
-  protected String dbType() {
-    return "sql";
+  protected String dbSystem(final DBInfo info) {
+    return info.getSystem();
   }
 
   @Override
@@ -50,9 +50,9 @@ public class JdbcTracer extends DatabaseClientTracer<DBInfo, String> {
   }
 
   @Override
-  protected String dbInstance(final DBInfo info) {
-    if (info.getInstance() != null) {
-      return info.getInstance();
+  protected String dbName(final DBInfo info) {
+    if (info.getName() != null) {
+      return info.getName();
     } else {
       return info.getDb();
     }
@@ -65,7 +65,7 @@ public class JdbcTracer extends DatabaseClientTracer<DBInfo, String> {
   }
 
   @Override
-  protected String dbUrl(final DBInfo info) {
+  protected String dbConnectionString(final DBInfo info) {
     return info.getShortUrl();
   }
 
@@ -78,7 +78,7 @@ public class JdbcTracer extends DatabaseClientTracer<DBInfo, String> {
   }
 
   public Span startSpan(Statement statement, String query) {
-    final Connection connection = connectionFromStatement(statement);
+    Connection connection = connectionFromStatement(statement);
     if (connection == null) {
       return null;
     }
@@ -86,7 +86,7 @@ public class JdbcTracer extends DatabaseClientTracer<DBInfo, String> {
     String originType = statement.getClass().getName();
     DBInfo dbInfo = extractDbInfo(connection);
 
-    return startSpan(dbInfo, query, originType);
+    return startSpan(dbInfo, query);
   }
 
   @Override
@@ -106,8 +106,8 @@ public class JdbcTracer extends DatabaseClientTracer<DBInfo, String> {
     {
       if (dbInfo == null) {
         try {
-          final DatabaseMetaData metaData = connection.getMetaData();
-          final String url = metaData.getURL();
+          DatabaseMetaData metaData = connection.getMetaData();
+          String url = metaData.getURL();
           if (url != null) {
             try {
               dbInfo = JDBCConnectionUrlParser.parse(url, connection.getClientInfo());

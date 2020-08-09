@@ -41,13 +41,13 @@ public class Resteasy31RequestContextInstrumentation extends AbstractRequestCont
     @Advice.OnMethodEnter(suppress = Throwable.class)
     public static SpanWithScope decorateAbortSpan(
         @Advice.This final ContainerRequestContext context) {
-      if (context.getProperty(JaxRsAnnotationsDecorator.ABORT_HANDLED) == null
+      if (context.getProperty(JaxRsAnnotationsTracer.ABORT_HANDLED) == null
           && context instanceof PostMatchContainerRequestContext) {
 
-        final ResourceMethodInvoker resourceMethodInvoker =
+        ResourceMethodInvoker resourceMethodInvoker =
             ((PostMatchContainerRequestContext) context).getResourceMethod();
-        final Method method = resourceMethodInvoker.getMethod();
-        final Class resourceClass = resourceMethodInvoker.getResourceClass();
+        Method method = resourceMethodInvoker.getMethod();
+        Class resourceClass = resourceMethodInvoker.getResourceClass();
 
         return RequestFilterHelper.createOrUpdateAbortSpan(context, resourceClass, method);
       }

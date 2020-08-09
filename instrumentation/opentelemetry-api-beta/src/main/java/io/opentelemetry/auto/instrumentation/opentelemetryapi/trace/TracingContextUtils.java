@@ -22,36 +22,38 @@ import static io.opentelemetry.auto.instrumentation.opentelemetryapi.trace.Bridg
 import io.opentelemetry.auto.bootstrap.ContextStore;
 import io.opentelemetry.auto.instrumentation.opentelemetryapi.context.NoopScope;
 import io.opentelemetry.auto.instrumentation.opentelemetryapi.context.UnshadedScope;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import unshaded.io.grpc.Context;
 import unshaded.io.opentelemetry.context.Scope;
 import unshaded.io.opentelemetry.trace.DefaultSpan;
 import unshaded.io.opentelemetry.trace.Span;
 
-@Slf4j
 public class TracingContextUtils {
+
+  private static final Logger log = LoggerFactory.getLogger(TracingContextUtils.class);
 
   public static Context withSpan(
       final Span span,
       final Context context,
       final ContextStore<Context, io.grpc.Context> contextStore) {
-    final io.opentelemetry.trace.Span shadedSpan = toShadedOrNull(span);
+    io.opentelemetry.trace.Span shadedSpan = toShadedOrNull(span);
     if (shadedSpan == null) {
       if (log.isDebugEnabled()) {
         log.debug("unexpected span: {}", span, new Exception("unexpected span"));
       }
       return context;
     }
-    final io.grpc.Context shadedContext = contextStore.get(context);
+    io.grpc.Context shadedContext = contextStore.get(context);
     if (shadedContext == null) {
       if (log.isDebugEnabled()) {
         log.debug("unexpected context: {}", context, new Exception("unexpected context"));
       }
       return context;
     }
-    final io.grpc.Context updatedShadedContext =
+    io.grpc.Context updatedShadedContext =
         io.opentelemetry.trace.TracingContextUtils.withSpan(shadedSpan, shadedContext);
-    final Context updatedContext = context.fork();
+    Context updatedContext = context.fork();
     contextStore.put(updatedContext, updatedShadedContext);
     return updatedContext;
   }
@@ -62,7 +64,7 @@ public class TracingContextUtils {
 
   public static Span getSpan(
       final Context context, final ContextStore<Context, io.grpc.Context> contextStore) {
-    final io.grpc.Context shadedContext = contextStore.get(context);
+    io.grpc.Context shadedContext = contextStore.get(context);
     if (shadedContext == null) {
       if (log.isDebugEnabled()) {
         log.debug("unexpected context: {}", context, new Exception("unexpected context"));
@@ -74,14 +76,14 @@ public class TracingContextUtils {
 
   public static Span getSpanWithoutDefault(
       final Context context, final ContextStore<Context, io.grpc.Context> contextStore) {
-    final io.grpc.Context shadedContext = contextStore.get(context);
+    io.grpc.Context shadedContext = contextStore.get(context);
     if (shadedContext == null) {
       if (log.isDebugEnabled()) {
         log.debug("unexpected context: {}", context, new Exception("unexpected context"));
       }
       return null;
     }
-    final io.opentelemetry.trace.Span shadedSpan =
+    io.opentelemetry.trace.Span shadedSpan =
         io.opentelemetry.trace.TracingContextUtils.getSpanWithoutDefault(shadedContext);
     return shadedSpan == null ? null : toUnshaded(shadedSpan);
   }

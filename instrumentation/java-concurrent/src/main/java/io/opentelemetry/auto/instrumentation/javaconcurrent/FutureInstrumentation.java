@@ -32,15 +32,17 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.Future;
-import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 @AutoService(Instrumenter.class)
 public final class FutureInstrumentation extends Instrumenter.Default {
+
+  private static final Logger log = LoggerFactory.getLogger(FutureInstrumentation.class);
 
   /**
    * Only apply executor instrumentation to whitelisted executors. In the future, this restriction
@@ -49,7 +51,7 @@ public final class FutureInstrumentation extends Instrumenter.Default {
   private static final Collection<String> WHITELISTED_FUTURES;
 
   static {
-    final String[] whitelist = {
+    String[] whitelist = {
       "akka.dispatch.forkjoin.ForkJoinTask",
       "akka.dispatch.forkjoin.ForkJoinTask$AdaptedCallable",
       "akka.dispatch.forkjoin.ForkJoinTask$AdaptedRunnable",
@@ -96,7 +98,7 @@ public final class FutureInstrumentation extends Instrumenter.Default {
     return new ElementMatcher.Junction.AbstractBase<TypeDescription>() {
       @Override
       public boolean matches(final TypeDescription target) {
-        final boolean whitelisted = WHITELISTED_FUTURES.contains(target.getName());
+        boolean whitelisted = WHITELISTED_FUTURES.contains(target.getName());
         if (!whitelisted && log.isDebugEnabled() && hasFutureInterfaceMatcher.matches(target)) {
           log.debug("Skipping future instrumentation for {}", target.getName());
         }
@@ -123,9 +125,9 @@ public final class FutureInstrumentation extends Instrumenter.Default {
       // Try to clear parent span even if future was not cancelled:
       // the expectation is that parent span should be cleared after 'cancel'
       // is called, one way or another
-      final ContextStore<Future, State> contextStore =
+      ContextStore<Future, State> contextStore =
           InstrumentationContext.get(Future.class, State.class);
-      final State state = contextStore.get(future);
+      State state = contextStore.get(future);
       if (state != null) {
         state.clearParentContext();
       }

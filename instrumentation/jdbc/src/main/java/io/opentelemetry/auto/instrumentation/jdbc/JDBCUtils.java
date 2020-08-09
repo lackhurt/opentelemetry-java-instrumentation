@@ -16,14 +16,18 @@
 
 package io.opentelemetry.auto.instrumentation.jdbc;
 
-import io.opentelemetry.auto.bootstrap.ExceptionLogger;
 import io.opentelemetry.auto.config.Config;
 import io.opentelemetry.auto.instrumentation.jdbc.normalizer.SqlNormalizer;
 import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.Statement;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class JDBCUtils {
+
+  private static final Logger log = LoggerFactory.getLogger(JDBCUtils.class);
+
   private static Field c3poField = null;
 
   /**
@@ -51,9 +55,9 @@ public abstract class JDBCUtils {
         if (connection != null) {
           // Attempt to work around c3po delegating to an connection that doesn't support
           // unwrapping.
-          final Class<? extends Connection> connectionClass = connection.getClass();
+          Class<? extends Connection> connectionClass = connection.getClass();
           if (connectionClass.getName().equals("com.mchange.v2.c3p0.impl.NewProxyConnection")) {
-            final Field inner = connectionClass.getDeclaredField("inner");
+            Field inner = connectionClass.getDeclaredField("inner");
             inner.setAccessible(true);
             c3poField = inner;
             return (Connection) c3poField.get(connection);
@@ -67,7 +71,7 @@ public abstract class JDBCUtils {
       }
     } catch (final Throwable e) {
       // Had some problem getting the connection.
-      ExceptionLogger.LOGGER.debug("Could not get connection for StatementAdvice", e);
+      log.debug("Could not get connection for StatementAdvice", e);
       return null;
     }
     return connection;
@@ -81,7 +85,7 @@ public abstract class JDBCUtils {
     try {
       return SqlNormalizer.normalize(sql);
     } catch (Exception e) {
-      ExceptionLogger.LOGGER.debug("Could not normalize sql", e);
+      log.debug("Could not normalize sql", e);
       return null;
     }
   }

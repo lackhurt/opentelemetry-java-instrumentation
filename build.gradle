@@ -1,9 +1,11 @@
 plugins {
-  id 'io.franzbecker.gradle-lombok' version '1.14' // Last to support Java 7
+  id 'idea'
 
   id "com.jfrog.artifactory" version "4.15.2" apply false
   id 'com.jfrog.bintray' version '1.8.5' apply false
   id "nebula.release" version "15.0.1"
+
+  id 'org.gradle.test-retry' version '1.1.8' apply false
 
   id 'org.unbroken-dome.test-sets' version '3.0.1'
   id 'com.github.ben-manes.versions' version '0.27.0'
@@ -46,22 +48,19 @@ wrapper {
 }
 
 allprojects {
-  tasks.withType(JavaForkOptions).configureEach {
-    maxHeapSize = System.properties["ota.forkedMaxHeapSize"]
-    minHeapSize = System.properties["ota.forkedMinHeapSize"]
-    jvmArgs "-XX:ErrorFile=/tmp/hs_err_pid%p.log"
+  apply plugin: 'idea'
+
+  idea {
+    module {
+      downloadJavadoc = false
+      downloadSources = false
+    }
   }
-}
 
-// Writes tasks to file allowing us to leverage CircleCI's file based task parallelization
-task writeMuzzleTasksToFile {
-  doLast {
-    def muzzleFile = file("${buildDir}/muzzleTasks")
-    assert muzzleFile.parentFile.mkdirs() || muzzleFile.parentFile.directory
-
-    muzzleFile.text = subprojects.findAll { subproject -> subproject.plugins.hasPlugin('muzzle') }
-      .collect { it.path + ":muzzle" }
-      .join('\n')
+  tasks.withType(JavaForkOptions).configureEach {
+    maxHeapSize = System.properties["otel.forkedMaxHeapSize"]
+    minHeapSize = System.properties["otel.forkedMinHeapSize"]
+    jvmArgs "-XX:ErrorFile=/tmp/hs_err_pid%p.log"
   }
 }
 
@@ -71,8 +70,7 @@ spotless {
   // this formatting is applied at the root level, as some of these files are not in a submodules
   // and would be missed otherwise
   format 'misc', {
-    target '**/.gitignore', '**/*.md', '**/*.sh'
-    targetExclude 'smoke-tests/**/build/**'
+    target '.gitignore', '*.md', 'docs/**/*.md'
     indentWithSpaces()
     trimTrailingWhitespace()
     endWithNewline()

@@ -16,7 +16,10 @@
 
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS;
 
-import io.opentelemetry.extensions.auto.annotations.WithSpan;
+import io.opentelemetry.OpenTelemetry;
+import io.opentelemetry.context.Scope;
+import io.opentelemetry.trace.Span;
+import io.opentelemetry.trace.Tracer;
 import io.reactivex.Single;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
@@ -34,10 +37,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class VertxReactiveWebServer extends AbstractVerticle {
+
+  private static final Logger log = LoggerFactory.getLogger(VertxReactiveWebServer.class);
+
+  private static final Tracer tracer = OpenTelemetry.getTracer("test");
+
   private static final String CONFIG_HTTP_SERVER_PORT = "http.server.port";
   private static JDBCClient client;
 
@@ -45,9 +53,9 @@ public class VertxReactiveWebServer extends AbstractVerticle {
       throws ExecutionException, InterruptedException, TimeoutException {
     /* This is highly against Vertx ideas, but our tests are synchronous
     so we have to make sure server is up and running */
-    final CompletableFuture<Void> future = new CompletableFuture<>();
+    CompletableFuture<Void> future = new CompletableFuture<>();
 
-    final Vertx server = Vertx.vertx(new VertxOptions());
+    Vertx server = Vertx.vertx(new VertxOptions());
 
     client =
         JDBCClient.createShared(
@@ -62,7 +70,7 @@ public class VertxReactiveWebServer extends AbstractVerticle {
         new DeploymentOptions().setConfig(new JsonObject().put(CONFIG_HTTP_SERVER_PORT, port)),
         res -> {
           if (!res.succeeded()) {
-            final RuntimeException exception =
+            RuntimeException exception =
                 new RuntimeException("Cannot deploy server Verticle", res.cause());
             future.completeExceptionally(exception);
           }
@@ -78,8 +86,8 @@ public class VertxReactiveWebServer extends AbstractVerticle {
   public void start(final io.vertx.core.Future<Void> startFuture) {
     setUpInitialData(
         ready -> {
-          final Router router = Router.router(vertx);
-          final int port = config().getInteger(CONFIG_HTTP_SERVER_PORT);
+          Router router = Router.router(vertx);
+          int port = config().getInteger(CONFIG_HTTP_SERVER_PORT);
           log.info("Listening on port {}", port);
           router
               .route(SUCCESS.getPath())
@@ -95,26 +103,34 @@ public class VertxReactiveWebServer extends AbstractVerticle {
         });
   }
 
-  @WithSpan
   private void handleListProducts(final RoutingContext routingContext) {
-    final HttpServerResponse response = routingContext.response();
-    final Single<JsonArray> jsonArraySingle = listProducts();
+    Span span = tracer.spanBuilder("handleListProducts").startSpan();
+    try (Scope ignored = tracer.withSpan(span)) {
+      HttpServerResponse response = routingContext.response();
+      Single<JsonArray> jsonArraySingle = listProducts();
 
-    jsonArraySingle.subscribe(
-        arr -> response.putHeader("content-type", "application/json").end(arr.encode()));
+      jsonArraySingle.subscribe(
+          arr -> response.putHeader("content-type", "application/json").end(arr.encode()));
+    } finally {
+      span.end();
+    }
   }
 
-  @WithSpan
   private Single<JsonArray> listProducts() {
-    return client
-        .rxQuery("SELECT id, name, price, weight FROM products")
-        .flatMap(
-            result -> {
-              Thread.dumpStack();
-              final JsonArray arr = new JsonArray();
-              result.getRows().forEach(arr::add);
-              return Single.just(arr);
-            });
+    Span span = tracer.spanBuilder("listProducts").startSpan();
+    try (Scope ignored = tracer.withSpan(span)) {
+      return client
+          .rxQuery("SELECT id, name, price, weight FROM products")
+          .flatMap(
+              result -> {
+                Thread.dumpStack();
+                JsonArray arr = new JsonArray();
+                result.getRows().forEach(arr::add);
+                return Single.just(arr);
+              });
+    } finally {
+      span.end();
+    }
   }
 
   private void setUpInitialData(final Handler<Void> done) {
@@ -124,7 +140,7 @@ public class VertxReactiveWebServer extends AbstractVerticle {
             throw new RuntimeException(res.cause());
           }
 
-          final SQLConnection conn = res.result();
+          SQLConnection conn = res.result();
 
           conn.execute(
               "CREATE TABLE IF NOT EXISTS products(id INT IDENTITY, name VARCHAR(255), price FLOAT, weight INT)",

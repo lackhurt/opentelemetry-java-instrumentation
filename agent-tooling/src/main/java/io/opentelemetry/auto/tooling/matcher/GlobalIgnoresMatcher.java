@@ -62,7 +62,7 @@ public class GlobalIgnoresMatcher<T extends TypeDescription>
    */
   @Override
   public boolean matches(final T target) {
-    final String name = target.getActualName();
+    String name = target.getActualName();
 
     if (name.startsWith("net.bytebuddy.")
         || name.startsWith("jdk.")
@@ -87,6 +87,10 @@ public class GlobalIgnoresMatcher<T extends TypeDescription>
       if (name.startsWith("org.codehaus.groovy.runtime.")) {
         return false;
       }
+      return true;
+    }
+    // clojure
+    if (name.startsWith("clojure.") || name.contains("$fn__")) {
       return true;
     }
 

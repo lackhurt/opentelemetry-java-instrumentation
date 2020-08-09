@@ -16,10 +16,8 @@
 
 package io.opentelemetry.auto.instrumentation.okhttp.v3_0;
 
-import static io.opentelemetry.auto.instrumentation.okhttp.v3_0.OkHttpClientDecorator.DECORATE;
-import static io.opentelemetry.auto.instrumentation.okhttp.v3_0.OkHttpClientDecorator.TRACER;
+import static io.opentelemetry.auto.instrumentation.okhttp.v3_0.OkHttpClientTracer.TRACER;
 import static io.opentelemetry.context.ContextUtils.withScopedContext;
-import static io.opentelemetry.trace.Span.Kind.CLIENT;
 import static io.opentelemetry.trace.TracingContextUtils.withSpan;
 
 import io.grpc.Context;
@@ -27,43 +25,30 @@ import io.opentelemetry.OpenTelemetry;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.trace.Span;
 import java.io.IOException;
-import lombok.extern.slf4j.Slf4j;
 import okhttp3.Interceptor;
 import okhttp3.Request;
 import okhttp3.Response;
 
-@Slf4j
 public class TracingInterceptor implements Interceptor {
 
   @Override
   public Response intercept(final Chain chain) throws IOException {
-    final Span span =
-        TRACER
-            .spanBuilder(DECORATE.spanNameForRequest(chain.request()))
-            .setSpanKind(CLIENT)
-            .startSpan();
+    Span span = TRACER.startSpan(chain.request());
+    Context context = withSpan(span, Context.current());
 
-    DECORATE.afterStart(span);
-    DECORATE.onRequest(span, chain.request());
-
-    final Context context = withSpan(span, Context.current());
-
-    final Request.Builder requestBuilder = chain.request().newBuilder();
+    Request.Builder requestBuilder = chain.request().newBuilder();
     OpenTelemetry.getPropagators()
         .getHttpTextFormat()
         .inject(context, requestBuilder, RequestBuilderInjectAdapter.SETTER);
 
-    final Response response;
-    try (final Scope scope = withScopedContext(context)) {
+    Response response;
+    try (Scope scope = withScopedContext(context)) {
       response = chain.proceed(requestBuilder.build());
     } catch (final Exception e) {
-      DECORATE.onError(span, e);
-      span.end();
+      TRACER.endExceptionally(span, e);
       throw e;
     }
-    DECORATE.onResponse(span, response);
-    DECORATE.beforeFinish(span);
-    span.end();
+    TRACER.end(span, response);
     return response;
   }
 }

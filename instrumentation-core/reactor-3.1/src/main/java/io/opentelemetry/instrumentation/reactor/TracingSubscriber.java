@@ -18,14 +18,12 @@ package io.opentelemetry.instrumentation.reactor;
 
 import io.opentelemetry.context.ContextUtils;
 import io.opentelemetry.context.Scope;
-import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Subscription;
 import reactor.core.CoreSubscriber;
 import reactor.core.Fuseable;
 import reactor.core.Scannable;
 import reactor.util.context.Context;
 
-@Slf4j
 public class TracingSubscriber<T>
     implements Subscription, CoreSubscriber<T>, Fuseable.QueueSubscription<T>, Scannable {
 
@@ -60,14 +58,14 @@ public class TracingSubscriber<T>
   public void onSubscribe(final Subscription subscription) {
     this.subscription = subscription;
 
-    try (final Scope scope = ContextUtils.withScopedContext(downstreamContext)) {
+    try (Scope scope = ContextUtils.withScopedContext(downstreamContext)) {
       delegate.onSubscribe(this);
     }
   }
 
   @Override
   public void onNext(final T t) {
-    try (final Scope scope = ContextUtils.withScopedContext(downstreamContext)) {
+    try (Scope scope = ContextUtils.withScopedContext(downstreamContext)) {
       delegate.onNext(t);
     }
   }
@@ -78,14 +76,14 @@ public class TracingSubscriber<T>
 
   @Override
   public void onError(final Throwable t) {
-    try (final Scope scope = finalScopeForDownstream()) {
+    try (Scope scope = finalScopeForDownstream()) {
       delegate.onError(t);
     }
   }
 
   @Override
   public void onComplete() {
-    try (final Scope scope = finalScopeForDownstream()) {
+    try (Scope scope = finalScopeForDownstream()) {
       delegate.onComplete();
     }
   }
@@ -96,14 +94,14 @@ public class TracingSubscriber<T>
 
   @Override
   public void request(final long n) {
-    try (final Scope scope = ContextUtils.withScopedContext(upstreamContext)) {
+    try (Scope scope = ContextUtils.withScopedContext(upstreamContext)) {
       subscription.request(n);
     }
   }
 
   @Override
   public void cancel() {
-    try (final Scope scope = ContextUtils.withScopedContext(upstreamContext)) {
+    try (Scope scope = ContextUtils.withScopedContext(upstreamContext)) {
       subscription.cancel();
     }
   }

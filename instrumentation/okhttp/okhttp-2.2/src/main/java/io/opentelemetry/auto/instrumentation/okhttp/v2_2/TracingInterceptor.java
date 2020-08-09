@@ -16,10 +16,8 @@
 
 package io.opentelemetry.auto.instrumentation.okhttp.v2_2;
 
-import static io.opentelemetry.auto.instrumentation.okhttp.v2_2.OkHttpClientDecorator.DECORATE;
-import static io.opentelemetry.auto.instrumentation.okhttp.v2_2.OkHttpClientDecorator.TRACER;
+import static io.opentelemetry.auto.instrumentation.okhttp.v2_2.OkHttpClientTracer.TRACER;
 import static io.opentelemetry.context.ContextUtils.withScopedContext;
-import static io.opentelemetry.trace.Span.Kind.CLIENT;
 import static io.opentelemetry.trace.TracingContextUtils.withSpan;
 
 import com.squareup.okhttp.Interceptor;
@@ -34,33 +32,21 @@ import java.io.IOException;
 public class TracingInterceptor implements Interceptor {
   @Override
   public Response intercept(final Chain chain) throws IOException {
-    final Span span =
-        TRACER
-            .spanBuilder(DECORATE.spanNameForRequest(chain.request()))
-            .setSpanKind(CLIENT)
-            .startSpan();
-
-    DECORATE.afterStart(span);
-    DECORATE.onRequest(span, chain.request());
-
-    final Context context = withSpan(span, Context.current());
-
-    final Request.Builder requestBuilder = chain.request().newBuilder();
+    Span span = TRACER.startSpan(chain.request());
+    Context context = withSpan(span, Context.current());
+    Request.Builder requestBuilder = chain.request().newBuilder();
     OpenTelemetry.getPropagators()
         .getHttpTextFormat()
         .inject(context, requestBuilder, RequestBuilderInjectAdapter.SETTER);
 
-    final Response response;
-    try (final Scope scope = withScopedContext(context)) {
+    Response response;
+    try (Scope scope = withScopedContext(context)) {
       response = chain.proceed(requestBuilder.build());
     } catch (final Exception e) {
-      DECORATE.onError(span, e);
-      span.end();
+      TRACER.endExceptionally(span, e);
       throw e;
     }
-    DECORATE.onResponse(span, response);
-    DECORATE.beforeFinish(span);
-    span.end();
+    TRACER.end(span, response);
     return response;
   }
 }

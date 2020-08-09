@@ -32,7 +32,7 @@ public class HibernateDecorator extends OrmClientDecorator {
       OpenTelemetry.getTracerProvider().get("io.opentelemetry.auto.hibernate");
 
   @Override
-  protected String dbType() {
+  protected String dbSystem() {
     return null;
   }
 
@@ -42,7 +42,7 @@ public class HibernateDecorator extends OrmClientDecorator {
   }
 
   @Override
-  protected String dbInstance(final Object o) {
+  protected String dbName(final Object o) {
     return null;
   }
 
@@ -52,8 +52,8 @@ public class HibernateDecorator extends OrmClientDecorator {
       return null;
     }
     String name = null;
-    final Set<String> annotations = new HashSet<>();
-    for (final Annotation annotation : entity.getClass().getDeclaredAnnotations()) {
+    Set<String> annotations = new HashSet<>();
+    for (Annotation annotation : entity.getClass().getDeclaredAnnotations()) {
       annotations.add(annotation.annotationType().getName());
     }
 

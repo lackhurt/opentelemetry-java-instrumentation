@@ -82,7 +82,7 @@ public class NettyChannelPipelineInstrumentation extends Instrumenter.Default {
       // Util
       packageName + ".util.CombinedSimpleChannelHandler",
       // client helpers
-      packageName + ".client.NettyHttpClientDecorator",
+      packageName + ".client.NettyHttpClientTracer",
       packageName + ".client.NettyResponseInjectAdapter",
       packageName + ".client.HttpClientRequestTracingHandler",
       packageName + ".client.HttpClientResponseTracingHandler",
@@ -98,7 +98,7 @@ public class NettyChannelPipelineInstrumentation extends Instrumenter.Default {
 
   @Override
   public Map<? extends ElementMatcher<? super MethodDescription>, String> transformers() {
-    final Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
+    Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
     transformers.put(
         isMethod()
             .and(nameStartsWith("add"))
@@ -184,7 +184,7 @@ public class NettyChannelPipelineInstrumentation extends Instrumenter.Default {
         return;
       }
 
-      final ContextStore<Channel, ChannelTraceContext> contextStore =
+      ContextStore<Channel, ChannelTraceContext> contextStore =
           InstrumentationContext.get(Channel.class, ChannelTraceContext.class);
 
       ChannelPipelineAdviceUtil.wrapHandler(contextStore, pipeline, handler);
@@ -214,7 +214,7 @@ public class NettyChannelPipelineInstrumentation extends Instrumenter.Default {
         return;
       }
 
-      final ContextStore<Channel, ChannelTraceContext> contextStore =
+      ContextStore<Channel, ChannelTraceContext> contextStore =
           InstrumentationContext.get(Channel.class, ChannelTraceContext.class);
 
       ChannelPipelineAdviceUtil.wrapHandler(contextStore, pipeline, handler);

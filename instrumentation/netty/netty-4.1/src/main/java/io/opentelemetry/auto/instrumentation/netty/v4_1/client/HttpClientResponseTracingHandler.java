@@ -16,7 +16,7 @@
 
 package io.opentelemetry.auto.instrumentation.netty.v4_1.client;
 
-import static io.opentelemetry.auto.instrumentation.netty.v4_1.client.NettyHttpClientDecorator.DECORATE;
+import static io.opentelemetry.auto.instrumentation.netty.v4_1.client.NettyHttpClientTracer.TRACER;
 import static io.opentelemetry.trace.TracingContextUtils.currentContextWith;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -32,24 +32,21 @@ public class HttpClientResponseTracingHandler extends ChannelInboundHandlerAdapt
 
   @Override
   public void channelRead(final ChannelHandlerContext ctx, final Object msg) {
-    final Attribute<Span> parentAttr =
-        ctx.channel().attr(AttributeKeys.CLIENT_PARENT_ATTRIBUTE_KEY);
+    Attribute<Span> parentAttr = ctx.channel().attr(AttributeKeys.CLIENT_PARENT_ATTRIBUTE_KEY);
     parentAttr.setIfAbsent(DefaultSpan.getInvalid());
-    final Span parent = parentAttr.get();
-    final Span span = ctx.channel().attr(AttributeKeys.CLIENT_ATTRIBUTE_KEY).get();
+    Span parent = parentAttr.get();
+    Span span = ctx.channel().attr(AttributeKeys.CLIENT_ATTRIBUTE_KEY).get();
 
-    final boolean finishSpan = msg instanceof HttpResponse;
+    boolean finishSpan = msg instanceof HttpResponse;
 
     if (span != null && finishSpan) {
-      try (final Scope scope = currentContextWith(span)) {
-        DECORATE.onResponse(span, (HttpResponse) msg);
-        DECORATE.beforeFinish(span);
-        span.end();
+      try (Scope scope = currentContextWith(span)) {
+        TRACER.end(span, (HttpResponse) msg);
       }
     }
 
     // We want the callback in the scope of the parent, not the client span
-    try (final Scope scope = currentContextWith(parent)) {
+    try (Scope scope = currentContextWith(parent)) {
       ctx.fireChannelRead(msg);
     }
   }

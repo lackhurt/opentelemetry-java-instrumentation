@@ -19,10 +19,8 @@ package io.opentelemetry.auto.instrumentation.springscheduling;
 import io.opentelemetry.OpenTelemetry;
 import io.opentelemetry.auto.bootstrap.instrumentation.decorator.BaseDecorator;
 import io.opentelemetry.trace.Tracer;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.support.ScheduledMethodRunnable;
 
-@Slf4j
 public class SpringSchedulingDecorator extends BaseDecorator {
   public static final SpringSchedulingDecorator DECORATE = new SpringSchedulingDecorator();
 
@@ -33,7 +31,7 @@ public class SpringSchedulingDecorator extends BaseDecorator {
 
   public String spanNameOnRun(final Runnable runnable) {
     if (runnable instanceof ScheduledMethodRunnable) {
-      final ScheduledMethodRunnable scheduledMethodRunnable = (ScheduledMethodRunnable) runnable;
+      ScheduledMethodRunnable scheduledMethodRunnable = (ScheduledMethodRunnable) runnable;
       return spanNameForMethod(scheduledMethodRunnable.getMethod());
     } else {
       return spanNameForClass(runnable.getClass()) + "/run";

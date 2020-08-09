@@ -39,9 +39,9 @@ class CouchbaseSpanUtil {
         "${SemanticAttributes.NET_PEER_NAME.key()}" { it == "localhost" || it == "127.0.0.1" || it == null }
         "${SemanticAttributes.NET_PEER_PORT.key()}" { it == null || Number }
 
-        "${SemanticAttributes.DB_TYPE.key()}" "couchbase"
+        "${SemanticAttributes.DB_SYSTEM.key()}" "couchbase"
         if (bucketName != null) {
-          "${SemanticAttributes.DB_INSTANCE.key()}" bucketName
+          "${SemanticAttributes.DB_NAME.key()}" bucketName
         }
 
         // Because of caching, not all requests hit the server so this tag may be absent

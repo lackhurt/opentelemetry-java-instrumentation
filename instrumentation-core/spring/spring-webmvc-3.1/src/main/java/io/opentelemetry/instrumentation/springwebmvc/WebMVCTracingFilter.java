@@ -41,13 +41,13 @@ public class WebMVCTracingFilter extends OncePerRequestFilter implements Ordered
   public void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
-    Span serverSpan = tracer.startSpan(request, request, FILTER_METHOD, FILTER_CLASS);
+    Span serverSpan = tracer.startSpan(request, request, FILTER_CLASS + "." + FILTER_METHOD);
 
-    try (Scope scope = tracer.startScope(serverSpan, request)) {
+    try (Scope ignored = tracer.startScope(serverSpan, request)) {
       filterChain.doFilter(request, response);
-      tracer.end(serverSpan, response.getStatus());
+      tracer.end(serverSpan, response);
     } catch (Throwable t) {
-      tracer.endExceptionally(serverSpan, t, response.getStatus());
+      tracer.endExceptionally(serverSpan, t, response);
       throw t;
     }
   }

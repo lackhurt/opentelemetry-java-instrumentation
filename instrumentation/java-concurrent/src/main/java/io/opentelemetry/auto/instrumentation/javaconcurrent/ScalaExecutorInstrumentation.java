@@ -31,13 +31,11 @@ import io.opentelemetry.auto.tooling.Instrumenter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
-import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.matcher.ElementMatcher;
 import scala.concurrent.forkjoin.ForkJoinTask;
 
-@Slf4j
 @AutoService(Instrumenter.class)
 public final class ScalaExecutorInstrumentation extends AbstractExecutorInstrumentation {
 
@@ -52,7 +50,7 @@ public final class ScalaExecutorInstrumentation extends AbstractExecutorInstrume
 
   @Override
   public Map<? extends ElementMatcher<? super MethodDescription>, String> transformers() {
-    final Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
+    Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
     transformers.put(
         named("execute")
             .and(takesArgument(0, named(ScalaForkJoinTaskInstrumentation.TASK_CLASS_NAME))),
@@ -75,7 +73,7 @@ public final class ScalaExecutorInstrumentation extends AbstractExecutorInstrume
         @Advice.This final Executor executor,
         @Advice.Argument(value = 0, readOnly = false) final ForkJoinTask task) {
       if (ExecutorInstrumentationUtils.shouldAttachStateToTask(task, executor)) {
-        final ContextStore<ForkJoinTask, State> contextStore =
+        ContextStore<ForkJoinTask, State> contextStore =
             InstrumentationContext.get(ForkJoinTask.class, State.class);
         return ExecutorInstrumentationUtils.setupState(contextStore, task, Context.current());
       }

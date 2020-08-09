@@ -48,12 +48,11 @@ class SlickTest extends AgentTestRunner {
           childOf span(0)
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "sql"
-            "${SemanticAttributes.DB_INSTANCE.key()}" SlickUtils.Db()
+            "${SemanticAttributes.DB_SYSTEM.key()}" "h2"
+            "${SemanticAttributes.DB_NAME.key()}" SlickUtils.Db()
             "${SemanticAttributes.DB_USER.key()}" SlickUtils.Username()
             "${SemanticAttributes.DB_STATEMENT.key()}" JDBCUtils.normalizeSql(SlickUtils.TestQuery())
-            "${SemanticAttributes.DB_URL.key()}" "h2:mem:"
-            "span.origin.type" "org.h2.jdbc.JdbcPreparedStatement"
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "h2:mem:"
           }
         }
       }

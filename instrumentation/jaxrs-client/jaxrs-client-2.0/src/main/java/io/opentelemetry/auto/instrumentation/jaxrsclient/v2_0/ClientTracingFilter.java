@@ -31,16 +31,14 @@ import javax.ws.rs.client.ClientRequestContext;
 import javax.ws.rs.client.ClientRequestFilter;
 import javax.ws.rs.client.ClientResponseContext;
 import javax.ws.rs.client.ClientResponseFilter;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 @Priority(Priorities.HEADER_DECORATOR)
 public class ClientTracingFilter implements ClientRequestFilter, ClientResponseFilter {
   public static final String SPAN_PROPERTY_NAME = "io.opentelemetry.auto.jax-rs-client.span";
 
   @Override
   public void filter(final ClientRequestContext requestContext) {
-    final Span span =
+    Span span =
         TRACER
             .spanBuilder(DECORATE.spanNameForRequest(requestContext))
             .setSpanKind(CLIENT)
@@ -49,7 +47,7 @@ public class ClientTracingFilter implements ClientRequestFilter, ClientResponseF
     DECORATE.afterStart(span);
     DECORATE.onRequest(span, requestContext);
 
-    final Context context = withSpan(span, Context.current());
+    Context context = withSpan(span, Context.current());
     OpenTelemetry.getPropagators()
         .getHttpTextFormat()
         .inject(context, requestContext.getHeaders(), SETTER);
@@ -60,9 +58,9 @@ public class ClientTracingFilter implements ClientRequestFilter, ClientResponseF
   @Override
   public void filter(
       final ClientRequestContext requestContext, final ClientResponseContext responseContext) {
-    final Object spanObj = requestContext.getProperty(SPAN_PROPERTY_NAME);
+    Object spanObj = requestContext.getProperty(SPAN_PROPERTY_NAME);
     if (spanObj instanceof Span) {
-      final Span span = (Span) spanObj;
+      Span span = (Span) spanObj;
       DECORATE.onResponse(span, responseContext);
       DECORATE.beforeFinish(span);
       span.end();

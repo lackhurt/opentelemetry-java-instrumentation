@@ -1,7 +1,12 @@
 // common gradle file for instrumentation
 
+apply plugin: 'io.opentelemetry.instrumentation.auto-instrumentation'
 apply plugin: 'net.bytebuddy.byte-buddy'
 apply plugin: 'muzzle'
+
+ext {
+  packageInAgentBundle = true
+}
 
 byteBuddy {
   transformation {
@@ -11,13 +16,14 @@ byteBuddy {
   }
 }
 
+// TODO(anuraaga): This needs to be added before adding publish.gradle, clean up this ordering restraint.
+afterEvaluate {
+  archivesBaseName = 'opentelemetry-auto-' + archivesBaseName
+}
+
 apply from: "$rootDir/gradle/java.gradle"
 if (project.ext.find("skipPublish") != true) {
   apply from: "$rootDir/gradle/publish.gradle"
-}
-
-tasks.withType(Test) {
-  forkEvery = 1
 }
 
 afterEvaluate {
@@ -34,7 +40,7 @@ afterEvaluate {
     // Apply common dependencies for instrumentation.
     implementation(project(':auto-tooling')) {
       // OpenTelemetry SDK is not needed for compilation, and :opentelemetry-sdk-shaded-for-testing
-      // is brought in for tests by project(:testing) below
+      // is brought in for tests by project(:testing-common) below
       exclude group: 'io.opentelemetry', module: 'opentelemetry-sdk'
     }
     implementation deps.bytebuddy
@@ -48,7 +54,7 @@ afterEvaluate {
     //testImplementation project(':instrumentation:http-url-connection')
     testImplementation project(':instrumentation:java-classloader')
 
-    testImplementation project(':testing')
+    testImplementation project(':testing-common')
     testAnnotationProcessor deps.autoservice
     testImplementation deps.autoservice
     testImplementation project(':utils:test-utils')

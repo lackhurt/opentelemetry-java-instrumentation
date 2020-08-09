@@ -21,7 +21,6 @@ import static net.bytebuddy.agent.builder.AgentBuilder.PoolStrategy;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import java.lang.ref.WeakReference;
-import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.description.annotation.AnnotationList;
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.description.method.MethodList;
@@ -53,8 +52,8 @@ import net.bytebuddy.pool.TypePool;
  * <p>Eviction is handled almost entirely through a size restriction; however, softValues are still
  * used as a further safeguard.
  */
-@Slf4j
 public class AgentCachingPoolStrategy implements PoolStrategy {
+
   // Many things are package visible for testing purposes --
   // others to avoid creation of synthetic accessors
 
@@ -109,7 +108,7 @@ public class AgentCachingPoolStrategy implements PoolStrategy {
       loaderRefCache.put(classLoader, loaderRef);
     }
 
-    final int loaderHash = classLoader.hashCode();
+    int loaderHash = classLoader.hashCode();
     return createCachingTypePool(loaderHash, loaderRef, classFileLocator);
   }
 
@@ -174,7 +173,7 @@ public class AgentCachingPoolStrategy implements PoolStrategy {
         return false;
       }
 
-      final TypeCacheKey that = (TypeCacheKey) obj;
+      TypeCacheKey that = (TypeCacheKey) obj;
 
       if (loaderHash != that.loaderHash) {
         return false;
@@ -197,12 +196,12 @@ public class AgentCachingPoolStrategy implements PoolStrategy {
         // In this case, it is fine because that means the ClassLoader is no
         // longer live, so the entries will never match anyway and will fall
         // out of the cache.
-        final ClassLoader thisLoader = loaderRef.get();
+        ClassLoader thisLoader = loaderRef.get();
         if (thisLoader == null) {
           return false;
         }
 
-        final ClassLoader thatLoader = that.loaderRef.get();
+        ClassLoader thatLoader = that.loaderRef.get();
         if (thatLoader == null) {
           return false;
         }
@@ -234,7 +233,7 @@ public class AgentCachingPoolStrategy implements PoolStrategy {
 
     @Override
     public TypePool.Resolution find(final String className) {
-      final TypePool.Resolution existingResolution =
+      TypePool.Resolution existingResolution =
           sharedResolutionCache.getIfPresent(new TypeCacheKey(loaderHash, loaderRef, className));
       if (existingResolution != null) {
         return existingResolution;

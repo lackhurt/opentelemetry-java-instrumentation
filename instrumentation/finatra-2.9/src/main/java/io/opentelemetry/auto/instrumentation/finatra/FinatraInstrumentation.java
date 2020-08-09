@@ -16,8 +16,7 @@
 
 package io.opentelemetry.auto.instrumentation.finatra;
 
-import static io.opentelemetry.auto.instrumentation.finatra.FinatraDecorator.DECORATE;
-import static io.opentelemetry.auto.instrumentation.finatra.FinatraDecorator.TRACER;
+import static io.opentelemetry.auto.instrumentation.finatra.FinatraTracer.TRACER;
 import static io.opentelemetry.auto.tooling.ClassLoaderMatcher.hasClassesNamed;
 import static io.opentelemetry.auto.tooling.bytebuddy.matcher.AgentElementMatchers.extendsClass;
 import static io.opentelemetry.trace.TracingContextUtils.currentContextWith;
@@ -33,7 +32,6 @@ import com.twitter.finagle.http.Response;
 import com.twitter.finatra.http.contexts.RouteInfo;
 import com.twitter.util.Future;
 import com.twitter.util.FutureEventListener;
-import io.opentelemetry.auto.bootstrap.instrumentation.decorator.HttpStatusConverter;
 import io.opentelemetry.auto.instrumentation.api.SpanWithScope;
 import io.opentelemetry.auto.tooling.Instrumenter;
 import io.opentelemetry.trace.Span;
@@ -53,7 +51,7 @@ public class FinatraInstrumentation extends Instrumenter.Default {
   @Override
   public String[] helperClassNames() {
     return new String[] {
-      packageName + ".FinatraDecorator", FinatraInstrumentation.class.getName() + "$Listener"
+      packageName + ".FinatraTracer", FinatraInstrumentation.class.getName() + "$Listener"
     };
   }
 
@@ -86,11 +84,12 @@ public class FinatraInstrumentation extends Instrumenter.Default {
         @Advice.FieldValue("routeInfo") final RouteInfo routeInfo,
         @Advice.FieldValue("clazz") final Class clazz) {
 
-      final Span parent = TRACER.getCurrentSpan();
-      parent.updateName(routeInfo.path());
+      Span serverSpan = TRACER.getCurrentServerSpan();
+      if (serverSpan != null) {
+        serverSpan.updateName(routeInfo.path());
+      }
 
-      final Span span = TRACER.spanBuilder(DECORATE.spanNameForClass(clazz)).startSpan();
-      DECORATE.afterStart(span);
+      Span span = TRACER.startSpan(clazz);
 
       return new SpanWithScope(span, currentContextWith(span));
     }
@@ -105,11 +104,9 @@ public class FinatraInstrumentation extends Instrumenter.Default {
         return;
       }
 
-      final Span span = spanWithScope.getSpan();
+      Span span = spanWithScope.getSpan();
       if (throwable != null) {
-        DECORATE.onError(span, throwable);
-        DECORATE.beforeFinish(span);
-        span.end();
+        TRACER.endExceptionally(span, throwable);
         spanWithScope.closeScope();
         return;
       }
@@ -127,22 +124,15 @@ public class FinatraInstrumentation extends Instrumenter.Default {
 
     @Override
     public void onSuccess(final Response response) {
-      final Span span = spanWithScope.getSpan();
-
-      // Don't use DECORATE.onResponse because this is the controller span
-      span.setStatus(HttpStatusConverter.statusFromHttpStatus(DECORATE.status(response)));
-
-      DECORATE.beforeFinish(span);
-      span.end();
+      Span span = spanWithScope.getSpan();
+      TRACER.end(span);
       spanWithScope.closeScope();
     }
 
     @Override
     public void onFailure(final Throwable cause) {
-      final Span span = spanWithScope.getSpan();
-      DECORATE.onError(span, cause);
-      DECORATE.beforeFinish(span);
-      span.end();
+      Span span = spanWithScope.getSpan();
+      TRACER.endExceptionally(span, cause);
       spanWithScope.closeScope();
     }
   }

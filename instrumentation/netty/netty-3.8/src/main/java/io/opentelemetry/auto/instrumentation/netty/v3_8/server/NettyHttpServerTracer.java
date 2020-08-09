@@ -26,18 +26,27 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
-import lombok.extern.slf4j.Slf4j;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.handler.codec.http.HttpRequest;
+import org.jboss.netty.handler.codec.http.HttpResponse;
 
-@Slf4j
 public class NettyHttpServerTracer
-    extends HttpServerTracer<HttpRequest, Channel, ChannelTraceContext> {
+    extends HttpServerTracer<HttpRequest, HttpResponse, Channel, ChannelTraceContext> {
   public static final NettyHttpServerTracer TRACER = new NettyHttpServerTracer();
 
   @Override
   protected String method(final HttpRequest httpRequest) {
     return httpRequest.getMethod().getName();
+  }
+
+  @Override
+  protected String requestHeader(HttpRequest httpRequest, String name) {
+    return httpRequest.headers().get(name);
+  }
+
+  @Override
+  protected int responseStatus(HttpResponse httpResponse) {
+    return httpResponse.getStatus().getCode();
   }
 
   @Override
@@ -52,7 +61,7 @@ public class NettyHttpServerTracer
 
   @Override
   protected URI url(final HttpRequest request) throws URISyntaxException {
-    final URI uri = new URI(request.getUri());
+    URI uri = new URI(request.getUri());
     if ((uri.getHost() == null || uri.getHost().equals("")) && request.headers().contains(HOST)) {
       return new URI("http://" + request.headers().get(HOST) + request.getUri());
     } else {
@@ -62,11 +71,16 @@ public class NettyHttpServerTracer
 
   @Override
   protected String peerHostIP(final Channel channel) {
-    final SocketAddress socketAddress = channel.getRemoteAddress();
+    SocketAddress socketAddress = channel.getRemoteAddress();
     if (socketAddress instanceof InetSocketAddress) {
       return ((InetSocketAddress) socketAddress).getAddress().getHostAddress();
     }
     return null;
+  }
+
+  @Override
+  protected String flavor(Channel channel, HttpRequest request) {
+    return request.getProtocolVersion().toString();
   }
 
   @Override
@@ -86,7 +100,7 @@ public class NettyHttpServerTracer
 
   @Override
   protected Integer peerPort(final Channel channel) {
-    final SocketAddress socketAddress = channel.getRemoteAddress();
+    SocketAddress socketAddress = channel.getRemoteAddress();
     if (socketAddress instanceof InetSocketAddress) {
       return ((InetSocketAddress) socketAddress).getPort();
     }

@@ -16,27 +16,25 @@
 
 package io.opentelemetry.auto.instrumentation.netty.v3_8.client;
 
-import static io.opentelemetry.auto.instrumentation.netty.v3_8.client.NettyHttpClientDecorator.DECORATE;
-import static io.opentelemetry.auto.instrumentation.netty.v3_8.client.NettyHttpClientDecorator.TRACER;
+import static io.opentelemetry.auto.instrumentation.netty.v3_8.client.NettyHttpClientTracer.TRACER;
 import static io.opentelemetry.auto.instrumentation.netty.v3_8.client.NettyResponseInjectAdapter.SETTER;
-import static io.opentelemetry.trace.Span.Kind.CLIENT;
+import static io.opentelemetry.trace.TracingContextUtils.currentContextWith;
 import static io.opentelemetry.trace.TracingContextUtils.withSpan;
 
 import io.grpc.Context;
 import io.opentelemetry.OpenTelemetry;
 import io.opentelemetry.auto.bootstrap.ContextStore;
+import io.opentelemetry.auto.bootstrap.instrumentation.decorator.BaseTracer;
 import io.opentelemetry.auto.instrumentation.netty.v3_8.ChannelTraceContext;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.trace.Span;
 import java.net.InetSocketAddress;
-import lombok.extern.slf4j.Slf4j;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelDownstreamHandler;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 
-@Slf4j
 public class HttpClientRequestTracingHandler extends SimpleChannelDownstreamHandler {
 
   private final ContextStore<Channel, ChannelTraceContext> contextStore;
@@ -53,40 +51,31 @@ public class HttpClientRequestTracingHandler extends SimpleChannelDownstreamHand
       return;
     }
 
-    final ChannelTraceContext channelTraceContext =
+    ChannelTraceContext channelTraceContext =
         contextStore.putIfAbsent(ctx.getChannel(), ChannelTraceContext.Factory.INSTANCE);
 
     Scope parentScope = null;
-    final Span continuation = channelTraceContext.getConnectionContinuation();
+    Span continuation = channelTraceContext.getConnectionContinuation();
     if (continuation != null) {
-      parentScope = TRACER.withSpan(continuation);
+      parentScope = currentContextWith(continuation);
       channelTraceContext.setConnectionContinuation(null);
     }
-
-    final HttpRequest request = (HttpRequest) msg.getMessage();
-
     channelTraceContext.setClientParentSpan(TRACER.getCurrentSpan());
 
-    final Span span =
-        TRACER.spanBuilder(DECORATE.spanNameForRequest(request)).setSpanKind(CLIENT).startSpan();
-    try (final Scope scope = TRACER.withSpan(span)) {
-      DECORATE.afterStart(span);
-      DECORATE.onRequest(span, request);
-      DECORATE.onPeerConnection(span, (InetSocketAddress) ctx.getChannel().getRemoteAddress());
+    HttpRequest request = (HttpRequest) msg.getMessage();
 
-      final Context context = withSpan(span, Context.current());
-      OpenTelemetry.getPropagators().getHttpTextFormat().inject(context, request.headers(), SETTER);
+    Span span = TRACER.startSpan(request);
+    BaseTracer.onPeerConnection(span, (InetSocketAddress) ctx.getChannel().getRemoteAddress());
+    Context context = withSpan(span, Context.current());
+    OpenTelemetry.getPropagators().getHttpTextFormat().inject(context, request.headers(), SETTER);
 
-      channelTraceContext.setClientSpan(span);
+    channelTraceContext.setClientSpan(span);
 
-      try {
-        ctx.sendDownstream(msg);
-      } catch (final Throwable throwable) {
-        DECORATE.onError(span, throwable);
-        DECORATE.beforeFinish(span);
-        span.end();
-        throw throwable;
-      }
+    try (Scope scope = currentContextWith(span)) {
+      ctx.sendDownstream(msg);
+    } catch (final Throwable throwable) {
+      TRACER.endExceptionally(span, throwable);
+      throw throwable;
     } finally {
       if (parentScope != null) {
         parentScope.close();

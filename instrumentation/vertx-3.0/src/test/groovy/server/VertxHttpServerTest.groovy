@@ -36,7 +36,7 @@ class VertxHttpServerTest extends HttpServerTest<Vertx> {
     // Useful for debugging:
     // .setBlockedThreadCheckInterval(Integer.MAX_VALUE)
       .setClusterPort(port))
-    final CompletableFuture<Void> future = new CompletableFuture<>()
+    CompletableFuture<Void> future = new CompletableFuture<>()
     server.deployVerticle(verticle().getName(),
       new DeploymentOptions()
         .setConfig(new JsonObject().put(CONFIG_HTTP_SERVER_PORT, port))
@@ -66,6 +66,12 @@ class VertxHttpServerTest extends HttpServerTest<Vertx> {
   }
 
   @Override
+  boolean testException() {
+    // TODO(anuraaga): https://github.com/open-telemetry/opentelemetry-java-instrumentation/issues/807
+    return false
+  }
+
+  @Override
   boolean testPathParam() {
     return true
   }
@@ -76,7 +82,7 @@ class VertxHttpServerTest extends HttpServerTest<Vertx> {
   }
 
   @Override
-  String expectedOperationName(String method, ServerEndpoint endpoint) {
+  String expectedServerSpanName(String method, ServerEndpoint endpoint) {
     return endpoint == PATH_PARAM ? "/path/:id/param" : endpoint.getPath()
   }
 

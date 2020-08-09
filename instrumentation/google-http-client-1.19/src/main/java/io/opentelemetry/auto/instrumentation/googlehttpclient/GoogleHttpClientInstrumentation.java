@@ -16,11 +16,8 @@
 
 package io.opentelemetry.auto.instrumentation.googlehttpclient;
 
-import static io.opentelemetry.auto.instrumentation.googlehttpclient.GoogleHttpClientDecorator.DECORATE;
-import static io.opentelemetry.auto.instrumentation.googlehttpclient.GoogleHttpClientDecorator.TRACER;
+import static io.opentelemetry.auto.instrumentation.googlehttpclient.GoogleHttpClientTracer.TRACER;
 import static io.opentelemetry.auto.instrumentation.googlehttpclient.HeadersInjectAdapter.SETTER;
-import static io.opentelemetry.trace.Span.Kind.CLIENT;
-import static io.opentelemetry.trace.TracingContextUtils.currentContextWith;
 import static io.opentelemetry.trace.TracingContextUtils.withSpan;
 import static java.util.Collections.singletonMap;
 import static net.bytebuddy.matcher.ElementMatchers.isMethod;
@@ -36,9 +33,7 @@ import io.grpc.Context;
 import io.opentelemetry.OpenTelemetry;
 import io.opentelemetry.auto.bootstrap.ContextStore;
 import io.opentelemetry.auto.bootstrap.InstrumentationContext;
-import io.opentelemetry.auto.instrumentation.api.MoreAttributes;
 import io.opentelemetry.auto.tooling.Instrumenter;
-import io.opentelemetry.context.Scope;
 import io.opentelemetry.trace.Span;
 import io.opentelemetry.trace.Status;
 import java.util.HashMap;
@@ -70,7 +65,7 @@ public class GoogleHttpClientInstrumentation extends Instrumenter.Default {
   @Override
   public String[] helperClassNames() {
     return new String[] {
-      packageName + ".GoogleHttpClientDecorator",
+      packageName + ".GoogleHttpClientTracer",
       packageName + ".RequestState",
       packageName + ".HeadersInjectAdapter"
     };
@@ -78,7 +73,7 @@ public class GoogleHttpClientInstrumentation extends Instrumenter.Default {
 
   @Override
   public Map<? extends ElementMatcher<? super MethodDescription>, String> transformers() {
-    final Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
+    Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
     transformers.put(
         isMethod().and(isPublic()).and(named("execute")).and(takesArguments(0)),
         GoogleHttpClientInstrumentation.class.getName() + "$GoogleHttpClientAdvice");
@@ -98,27 +93,19 @@ public class GoogleHttpClientInstrumentation extends Instrumenter.Default {
     @Advice.OnMethodEnter(suppress = Throwable.class)
     public static void methodEnter(@Advice.This final HttpRequest request) {
 
-      final ContextStore<HttpRequest, RequestState> contextStore =
+      ContextStore<HttpRequest, RequestState> contextStore =
           InstrumentationContext.get(HttpRequest.class, RequestState.class);
 
       RequestState state = contextStore.get(request);
 
       if (state == null) {
-        state =
-            new RequestState(
-                TRACER
-                    .spanBuilder(DECORATE.spanNameForRequest(request))
-                    .setSpanKind(CLIENT)
-                    .startSpan());
+        state = new RequestState(TRACER.startSpan(request));
         contextStore.put(request, state);
       }
 
-      final Span span = state.getSpan();
+      Span span = state.getSpan();
 
-      DECORATE.afterStart(span);
-      DECORATE.onRequest(span, request);
-
-      final Context context = withSpan(span, Context.current());
+      Context context = withSpan(span, Context.current());
       OpenTelemetry.getPropagators().getHttpTextFormat().inject(context, request, SETTER);
     }
 
@@ -128,26 +115,22 @@ public class GoogleHttpClientInstrumentation extends Instrumenter.Default {
         @Advice.Return final HttpResponse response,
         @Advice.Thrown final Throwable throwable) {
 
-      final ContextStore<HttpRequest, RequestState> contextStore =
+      ContextStore<HttpRequest, RequestState> contextStore =
           InstrumentationContext.get(HttpRequest.class, RequestState.class);
-      final RequestState state = contextStore.get(request);
+      RequestState state = contextStore.get(request);
 
       if (state != null) {
-        final Span span = state.getSpan();
+        Span span = state.getSpan();
 
-        try (final Scope scope = currentContextWith(span)) {
-          DECORATE.onResponse(span, response);
-          DECORATE.onError(span, throwable);
-
-          // If HttpRequest.setThrowExceptionOnExecuteError is set to false, there are no exceptions
-          // for a failed request.  Thus, check the response code
-          if (response != null && !response.isSuccessStatusCode()) {
-            span.setStatus(Status.UNKNOWN);
-            span.setAttribute(MoreAttributes.ERROR_MSG, response.getStatusMessage());
-          }
-
-          DECORATE.beforeFinish(span);
-          span.end();
+        if (throwable == null) {
+          TRACER.end(span, response);
+        } else {
+          TRACER.endExceptionally(span, response, throwable);
+        }
+        // If HttpRequest.setThrowExceptionOnExecuteError is set to false, there are no exceptions
+        // for a failed request.  Thus, check the response code
+        if (response != null && !response.isSuccessStatusCode()) {
+          span.setStatus(Status.UNKNOWN);
         }
       }
     }
@@ -157,13 +140,12 @@ public class GoogleHttpClientInstrumentation extends Instrumenter.Default {
 
     @Advice.OnMethodEnter(suppress = Throwable.class)
     public static void methodEnter(@Advice.This final HttpRequest request) {
-      final Span span =
-          TRACER.spanBuilder(DECORATE.spanNameForRequest(request)).setSpanKind(CLIENT).startSpan();
+      Span span = TRACER.startSpan(request);
 
-      final ContextStore<HttpRequest, RequestState> contextStore =
+      ContextStore<HttpRequest, RequestState> contextStore =
           InstrumentationContext.get(HttpRequest.class, RequestState.class);
 
-      final RequestState state = new RequestState(span);
+      RequestState state = new RequestState(span);
       contextStore.put(request, state);
     }
 
@@ -173,19 +155,14 @@ public class GoogleHttpClientInstrumentation extends Instrumenter.Default {
 
       if (throwable != null) {
 
-        final ContextStore<HttpRequest, RequestState> contextStore =
+        ContextStore<HttpRequest, RequestState> contextStore =
             InstrumentationContext.get(HttpRequest.class, RequestState.class);
-        final RequestState state = contextStore.get(request);
+        RequestState state = contextStore.get(request);
 
         if (state != null) {
-          final Span span = state.getSpan();
+          Span span = state.getSpan();
 
-          try (final Scope scope = currentContextWith(span)) {
-            DECORATE.onError(span, throwable);
-
-            DECORATE.beforeFinish(span);
-            span.end();
-          }
+          TRACER.endExceptionally(span, throwable);
         }
       }
     }

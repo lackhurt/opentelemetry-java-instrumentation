@@ -22,10 +22,11 @@ import static io.opentelemetry.auto.tooling.bytebuddy.matcher.SafeErasureMatcher
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.description.type.TypeDefinition;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * An element matcher that matches a super type. This is different from {@link
@@ -45,9 +46,10 @@ import net.bytebuddy.matcher.ElementMatcher;
  * @param <T> The type of the matched entity.
  * @see net.bytebuddy.matcher.HasSuperTypeMatcher
  */
-@Slf4j
 class SafeHasSuperTypeMatcher<T extends TypeDescription>
     extends ElementMatcher.Junction.AbstractBase<T> {
+
+  private static final Logger log = LoggerFactory.getLogger(SafeHasSuperTypeMatcher.class);
 
   /** The matcher to apply to any super type of the matched type. */
   private final ElementMatcher<? super TypeDescription.Generic> matcher;
@@ -66,7 +68,7 @@ class SafeHasSuperTypeMatcher<T extends TypeDescription>
 
   @Override
   public boolean matches(final T target) {
-    final Set<TypeDescription> checkedInterfaces = new HashSet<>(8);
+    Set<TypeDescription> checkedInterfaces = new HashSet<>(8);
     // We do not use foreach loop and iterator interface here because we need to catch exceptions
     // in {@code getSuperClass} calls
     TypeDefinition typeDefinition = target;
@@ -90,8 +92,8 @@ class SafeHasSuperTypeMatcher<T extends TypeDescription>
    */
   private boolean hasInterface(
       final TypeDefinition typeDefinition, final Set<TypeDescription> checkedInterfaces) {
-    for (final TypeDefinition interfaceType : safeGetInterfaces(typeDefinition)) {
-      final TypeDescription erasure = safeAsErasure(interfaceType);
+    for (TypeDefinition interfaceType : safeGetInterfaces(typeDefinition)) {
+      TypeDescription erasure = safeAsErasure(interfaceType);
       if (erasure != null) {
         if (checkedInterfaces.add(interfaceType.asErasure())
             && (matcher.matches(interfaceType.asGenericType())

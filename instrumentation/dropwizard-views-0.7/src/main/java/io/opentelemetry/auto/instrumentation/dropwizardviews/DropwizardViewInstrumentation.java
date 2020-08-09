@@ -78,16 +78,11 @@ public final class DropwizardViewInstrumentation extends Instrumenter.Default {
         OpenTelemetry.getTracerProvider().get("io.opentelemetry.auto.dropwizard-views-0.7");
 
     @Advice.OnMethodEnter(suppress = Throwable.class)
-    public static SpanWithScope onEnter(
-        @Advice.This final Object obj, @Advice.Argument(0) final View view) {
+    public static SpanWithScope onEnter(@Advice.Argument(0) final View view) {
       if (!TRACER.getCurrentSpan().getContext().isValid()) {
         return null;
       }
-      final Span span =
-          TRACER
-              .spanBuilder("Render " + view.getTemplateName())
-              .setAttribute("span.origin.type", obj.getClass().getSimpleName())
-              .startSpan();
+      Span span = TRACER.spanBuilder("Render " + view.getTemplateName()).startSpan();
       return new SpanWithScope(span, currentContextWith(span));
     }
 
@@ -97,7 +92,7 @@ public final class DropwizardViewInstrumentation extends Instrumenter.Default {
       if (spanWithScope == null) {
         return;
       }
-      final Span span = spanWithScope.getSpan();
+      Span span = spanWithScope.getSpan();
       if (throwable != null) {
         span.setStatus(Status.UNKNOWN);
         BaseDecorator.addThrowable(span, throwable);

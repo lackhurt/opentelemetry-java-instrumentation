@@ -101,12 +101,11 @@ class ProcedureCallTest extends AgentTestRunner {
           spanKind CLIENT
           childOf span(1)
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "sql"
-            "${SemanticAttributes.DB_INSTANCE.key()}" "test"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "hsqldb"
+            "${SemanticAttributes.DB_NAME.key()}" "test"
             "${SemanticAttributes.DB_USER.key()}" "sa"
             "${SemanticAttributes.DB_STATEMENT.key()}" "{call TEST_PROC()}"
-            "${SemanticAttributes.DB_URL.key()}" "hsqldb:mem:"
-            "span.origin.type" "org.hsqldb.jdbc.JDBCCallableStatement"
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "hsqldb:mem:"
           }
         }
         span(3) {
@@ -153,9 +152,7 @@ class ProcedureCallTest extends AgentTestRunner {
           spanKind INTERNAL
           childOf span(0)
           errored(true)
-          attributes {
-            errorAttributes(SQLGrammarException, "could not prepare statement")
-          }
+          errorEvent(SQLGrammarException, "could not prepare statement")
         }
         span(2) {
           operationName "Transaction.commit"

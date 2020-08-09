@@ -35,7 +35,6 @@ import io.opentelemetry.auto.tooling.Instrumenter;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.trace.Span;
 import io.opentelemetry.trace.SpanContext;
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -75,7 +74,7 @@ public final class JMSMessageConsumerInstrumentation extends Instrumenter.Defaul
 
   @Override
   public Map<? extends ElementMatcher<? super MethodDescription>, String> transformers() {
-    final Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
+    Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
     transformers.put(
         named("receive").and(takesArguments(0).or(takesArguments(1))).and(isPublic()),
         JMSMessageConsumerInstrumentation.class.getName() + "$ConsumerAdvice");
@@ -101,7 +100,6 @@ public final class JMSMessageConsumerInstrumentation extends Instrumenter.Defaul
     public static void stopSpan(
         @Advice.This final MessageConsumer consumer,
         @Advice.Enter final long startTime,
-        @Advice.Origin final Method method,
         @Advice.Return final Message message,
         @Advice.Thrown final Throwable throwable) {
       String spanName;
@@ -113,21 +111,20 @@ public final class JMSMessageConsumerInstrumentation extends Instrumenter.Defaul
       } else {
         spanName = DECORATE.spanNameForReceive(message);
       }
-      final Span.Builder spanBuilder =
+      Span.Builder spanBuilder =
           TRACER
               .spanBuilder(spanName)
               .setSpanKind(CLIENT)
               .setStartTimestamp(TimeUnit.MILLISECONDS.toNanos(startTime));
       if (message != null) {
-        final SpanContext spanContext = extract(message, GETTER);
+        SpanContext spanContext = extract(message, GETTER);
         if (spanContext.isValid()) {
           spanBuilder.addLink(spanContext);
         }
       }
-      final Span span =
-          spanBuilder.setAttribute("span.origin.type", consumer.getClass().getName()).startSpan();
+      Span span = spanBuilder.startSpan();
 
-      try (final Scope scope = currentContextWith(span)) {
+      try (Scope scope = currentContextWith(span)) {
         DECORATE.afterStart(span);
         DECORATE.onError(span, throwable);
         DECORATE.beforeFinish(span);

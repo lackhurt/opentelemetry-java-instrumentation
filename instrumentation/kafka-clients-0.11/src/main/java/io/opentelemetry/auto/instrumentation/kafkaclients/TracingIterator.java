@@ -28,11 +28,14 @@ import io.opentelemetry.trace.Span;
 import io.opentelemetry.trace.SpanContext;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class TracingIterator implements Iterator<ConsumerRecord> {
+
+  private static final Logger log = LoggerFactory.getLogger(TracingIterator.class);
+
   private final Iterator<ConsumerRecord> delegateIterator;
   private final KafkaDecorator decorator;
 
@@ -67,17 +70,17 @@ public class TracingIterator implements Iterator<ConsumerRecord> {
       currentSpanWithScope = null;
     }
 
-    final ConsumerRecord next = delegateIterator.next();
+    ConsumerRecord next = delegateIterator.next();
 
     try {
       if (next != null) {
-        final boolean consumer = !TRACER.getCurrentSpan().getContext().isValid();
-        final Span.Builder spanBuilder = TRACER.spanBuilder(decorator.spanNameOnConsume(next));
+        boolean consumer = !TRACER.getCurrentSpan().getContext().isValid();
+        Span.Builder spanBuilder = TRACER.spanBuilder(decorator.spanNameOnConsume(next));
         if (consumer) {
           spanBuilder.setSpanKind(CONSUMER);
         }
         if (Config.get().isKafkaClientPropagationEnabled()) {
-          final SpanContext spanContext = extract(next.headers(), GETTER);
+          SpanContext spanContext = extract(next.headers(), GETTER);
           if (spanContext.isValid()) {
             if (consumer) {
               spanBuilder.setParent(spanContext);
@@ -86,9 +89,9 @@ public class TracingIterator implements Iterator<ConsumerRecord> {
             }
           }
         }
-        final long startTimeMillis = System.currentTimeMillis();
+        long startTimeMillis = System.currentTimeMillis();
         spanBuilder.setStartTimestamp(TimeUnit.MILLISECONDS.toNanos(startTimeMillis));
-        final Span span = spanBuilder.startSpan();
+        Span span = spanBuilder.startSpan();
         // tombstone checking logic here because it can only be inferred
         // from the record itself
         if (next.value() == null && !next.headers().iterator().hasNext()) {

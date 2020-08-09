@@ -25,13 +25,16 @@ import java.net.URLClassLoader;
 import java.util.Enumeration;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.jar.asm.ClassReader;
 import net.bytebuddy.jar.asm.ClassWriter;
 import net.bytebuddy.jar.asm.commons.ClassRemapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class ExporterClassLoader extends URLClassLoader {
+
+  private static final Logger log = LoggerFactory.getLogger(ExporterClassLoader.class);
+
   // We need to prefix the names to prevent the gradle shadowJar relocation rules from touching
   // them. It's possible to do this by excluding this class from shading, but it may cause issue
   // with transitive dependencies down the line.
@@ -85,7 +88,7 @@ public class ExporterClassLoader extends URLClassLoader {
       throw new ClassNotFoundException(name);
     }
     try {
-      final byte[] bytes = remapClassBytes(in);
+      byte[] bytes = remapClassBytes(in);
       definePackageIfNeeded(name);
       return defineClass(name, bytes, 0, bytes.length);
     } catch (final IOException e) {
@@ -134,8 +137,8 @@ public class ExporterClassLoader extends URLClassLoader {
   }
 
   private static byte[] remapClassBytes(InputStream in) throws IOException {
-    final ClassWriter cw = new ClassWriter(0);
-    final ClassReader cr = new ClassReader(in);
+    ClassWriter cw = new ClassWriter(0);
+    ClassReader cr = new ClassReader(in);
     cr.accept(new ClassRemapper(cw, remapper), ClassReader.EXPAND_FRAMES);
     return cw.toByteArray();
   }

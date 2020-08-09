@@ -93,7 +93,7 @@ class Elasticsearch53SpringRepositoryTest extends AgentTestRunner {
           errored false
           childOf span(0)
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "elasticsearch"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "SearchAction"
             "elasticsearch.request" "SearchRequest"
             "elasticsearch.request.indices" indexName
@@ -128,7 +128,7 @@ class Elasticsearch53SpringRepositoryTest extends AgentTestRunner {
           spanKind CLIENT
           childOf span(0)
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "elasticsearch"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "IndexAction"
             "elasticsearch.request" "IndexRequest"
             "elasticsearch.request.indices" indexName
@@ -145,7 +145,7 @@ class Elasticsearch53SpringRepositoryTest extends AgentTestRunner {
           spanKind CLIENT
           childOf span(1)
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "elasticsearch"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "PutMappingAction"
             "elasticsearch.request" "PutMappingRequest"
           }
@@ -155,7 +155,7 @@ class Elasticsearch53SpringRepositoryTest extends AgentTestRunner {
           spanKind CLIENT
           childOf span(0)
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "elasticsearch"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "RefreshAction"
             "elasticsearch.request" "RefreshRequest"
             "elasticsearch.request.indices" indexName
@@ -185,7 +185,7 @@ class Elasticsearch53SpringRepositoryTest extends AgentTestRunner {
           spanKind CLIENT
           childOf span(0)
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "elasticsearch"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "GetAction"
             "elasticsearch.request" "GetRequest"
             "elasticsearch.request.indices" indexName
@@ -219,7 +219,7 @@ class Elasticsearch53SpringRepositoryTest extends AgentTestRunner {
           spanKind CLIENT
           childOf span(0)
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "elasticsearch"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "IndexAction"
             "elasticsearch.request" "IndexRequest"
             "elasticsearch.request.indices" indexName
@@ -236,7 +236,7 @@ class Elasticsearch53SpringRepositoryTest extends AgentTestRunner {
           spanKind CLIENT
           childOf span(0)
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "elasticsearch"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "RefreshAction"
             "elasticsearch.request" "RefreshRequest"
             "elasticsearch.request.indices" indexName
@@ -258,7 +258,7 @@ class Elasticsearch53SpringRepositoryTest extends AgentTestRunner {
           spanKind CLIENT
           childOf span(0)
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "elasticsearch"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "GetAction"
             "elasticsearch.request" "GetRequest"
             "elasticsearch.request.indices" indexName
@@ -291,7 +291,7 @@ class Elasticsearch53SpringRepositoryTest extends AgentTestRunner {
           spanKind CLIENT
           childOf span(0)
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "elasticsearch"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "DeleteAction"
             "elasticsearch.request" "DeleteRequest"
             "elasticsearch.request.indices" indexName
@@ -307,7 +307,7 @@ class Elasticsearch53SpringRepositoryTest extends AgentTestRunner {
           spanKind CLIENT
           childOf span(0)
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "elasticsearch"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "RefreshAction"
             "elasticsearch.request" "RefreshRequest"
             "elasticsearch.request.indices" indexName
@@ -330,7 +330,7 @@ class Elasticsearch53SpringRepositoryTest extends AgentTestRunner {
           spanKind CLIENT
           childOf span(0)
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "elasticsearch"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
             "elasticsearch.action" "SearchAction"
             "elasticsearch.request" "SearchRequest"
             "elasticsearch.request.indices" indexName

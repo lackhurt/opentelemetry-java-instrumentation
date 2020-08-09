@@ -19,7 +19,10 @@ package io.opentelemetry.auto.instrumentation.opentelemetryapi.trace;
 import static io.opentelemetry.auto.instrumentation.opentelemetryapi.trace.Bridging.toShaded;
 import static io.opentelemetry.auto.instrumentation.opentelemetryapi.trace.Bridging.toShadedOrNull;
 
-import lombok.extern.slf4j.Slf4j;
+import io.opentelemetry.auto.bootstrap.ContextStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import unshaded.io.grpc.Context;
 import unshaded.io.opentelemetry.common.AttributeValue;
 import unshaded.io.opentelemetry.common.Attributes;
 import unshaded.io.opentelemetry.trace.EndSpanOptions;
@@ -63,7 +66,7 @@ class UnshadedSpan implements Span {
 
   @Override
   public void setAttribute(final String key, final AttributeValue value) {
-    final io.opentelemetry.common.AttributeValue convertedValue = Bridging.toShadedOrNull(value);
+    io.opentelemetry.common.AttributeValue convertedValue = Bridging.toShadedOrNull(value);
     if (convertedValue != null) {
       shadedSpan.setAttribute(key, convertedValue);
     }
@@ -101,10 +104,15 @@ class UnshadedSpan implements Span {
 
   @Override
   public void setStatus(final Status status) {
-    final io.opentelemetry.trace.Status shadedStatus = toShadedOrNull(status);
+    io.opentelemetry.trace.Status shadedStatus = toShadedOrNull(status);
     if (shadedStatus != null) {
       shadedSpan.setStatus(shadedStatus);
     }
+  }
+
+  @Override
+  public void recordException(Throwable throwable) {
+    shadedSpan.recordException(throwable);
   }
 
   @Override
@@ -140,13 +148,18 @@ class UnshadedSpan implements Span {
     return shadedSpan.equals(((UnshadedSpan) other).shadedSpan);
   }
 
-  @Slf4j
   static class Builder implements Span.Builder {
 
-    private final io.opentelemetry.trace.Span.Builder shadedBuilder;
+    private static final Logger log = LoggerFactory.getLogger(Builder.class);
 
-    Builder(final io.opentelemetry.trace.Span.Builder shadedBuilder) {
+    private final io.opentelemetry.trace.Span.Builder shadedBuilder;
+    private final ContextStore<Context, io.grpc.Context> contextStore;
+
+    Builder(
+        final io.opentelemetry.trace.Span.Builder shadedBuilder,
+        ContextStore<Context, io.grpc.Context> contextStore) {
       this.shadedBuilder = shadedBuilder;
+      this.contextStore = contextStore;
     }
 
     @Override
@@ -162,6 +175,12 @@ class UnshadedSpan implements Span {
     @Override
     public Span.Builder setParent(final SpanContext remoteParent) {
       shadedBuilder.setParent(toShaded(remoteParent));
+      return this;
+    }
+
+    @Override
+    public Span.Builder setParent(Context context) {
+      shadedBuilder.setParent(contextStore.get(context));
       return this;
     }
 
@@ -215,7 +234,7 @@ class UnshadedSpan implements Span {
 
     @Override
     public Span.Builder setAttribute(final String key, final AttributeValue value) {
-      final io.opentelemetry.common.AttributeValue convertedValue = Bridging.toShadedOrNull(value);
+      io.opentelemetry.common.AttributeValue convertedValue = Bridging.toShadedOrNull(value);
       if (convertedValue != null) {
         shadedBuilder.setAttribute(key, convertedValue);
       }
@@ -224,7 +243,7 @@ class UnshadedSpan implements Span {
 
     @Override
     public Span.Builder setSpanKind(final Span.Kind spanKind) {
-      final io.opentelemetry.trace.Span.Kind shadedSpanKind = toShadedOrNull(spanKind);
+      io.opentelemetry.trace.Span.Kind shadedSpanKind = toShadedOrNull(spanKind);
       if (shadedSpanKind != null) {
         shadedBuilder.setSpanKind(shadedSpanKind);
       }

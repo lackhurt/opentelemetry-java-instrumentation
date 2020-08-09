@@ -51,7 +51,7 @@ import static org.glassfish.grizzly.memory.Buffers.wrap
 class GrizzlyFilterchainServerTest extends HttpServerTest<HttpServer> {
 
   static {
-    System.setProperty("ota.integration.grizzly.enabled", "true")
+    System.setProperty("otel.integration.grizzly.enabled", "true")
   }
 
   private TCPNIOTransport transport
@@ -115,8 +115,8 @@ class GrizzlyFilterchainServerTest extends HttpServerTest<HttpServer> {
     @Override
     NextAction handleRead(final FilterChainContext ctx) throws IOException {
       if (ctx.getMessage() instanceof HttpContent) {
-        final HttpContent httpContent = ctx.getMessage()
-        final HttpHeader httpHeader = httpContent.getHttpHeader()
+        HttpContent httpContent = ctx.getMessage()
+        HttpHeader httpHeader = httpContent.getHttpHeader()
         if (httpHeader instanceof HttpRequestPacket) {
           HttpRequestPacket request = (HttpRequestPacket) httpContent.getHttpHeader()
           ResponseParameters responseParameters = buildResponse(request)
@@ -136,9 +136,9 @@ class GrizzlyFilterchainServerTest extends HttpServerTest<HttpServer> {
     }
 
     ResponseParameters buildResponse(HttpRequestPacket request) {
-      final String uri = request.getRequestURI()
-      final String requestParams = request.getQueryString()
-      final String fullPath = uri + (requestParams != null ? "?" + requestParams : "")
+      String uri = request.getRequestURI()
+      String requestParams = request.getQueryString()
+      String fullPath = uri + (requestParams != null ? "?" + requestParams : "")
 
       Map<String, String> headers = new HashMap<>()
 
@@ -176,7 +176,7 @@ class GrizzlyFilterchainServerTest extends HttpServerTest<HttpServer> {
       int status = endpoint.status
       String responseBody = endpoint == REDIRECT ? "" : endpoint.body
 
-      final byte[] responseBodyBytes = responseBody.getBytes(defaultCharset())
+      byte[] responseBodyBytes = responseBody.getBytes(defaultCharset())
       return new ResponseParameters(endpoint, status, responseBodyBytes, headers)
     }
 
@@ -217,7 +217,7 @@ class GrizzlyFilterchainServerTest extends HttpServerTest<HttpServer> {
   }
 
   @Override
-  String expectedOperationName(String method, ServerEndpoint endpoint) {
+  String expectedServerSpanName(String method, ServerEndpoint endpoint) {
     return "HttpCodecFilter.handleRead"
   }
 

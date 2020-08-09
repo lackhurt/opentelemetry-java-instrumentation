@@ -36,7 +36,6 @@ import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.EXCE
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.QUERY_PARAM
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.REDIRECT
 import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCCESS
-import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
 
 @Unroll
 abstract class TomcatServlet3Test extends AbstractServlet3Test<Tomcat, Context> {
@@ -55,7 +54,7 @@ abstract class TomcatServlet3Test extends AbstractServlet3Test<Tomcat, Context> 
     tomcatServer.setPort(port)
     tomcatServer.getConnector().enableLookups = true // get localhost instead of 127.0.0.1
 
-    final File applicationDir = new File(baseDir, "/webapps/ROOT")
+    File applicationDir = new File(baseDir, "/webapps/ROOT")
     if (!applicationDir.exists()) {
       applicationDir.mkdirs()
       applicationDir.deleteOnExit()
@@ -124,22 +123,19 @@ abstract class TomcatServlet3Test extends AbstractServlet3Test<Tomcat, Context> 
     }
 
     and:
-    assertTraces(count * 2) {
+    assertTraces(count) {
       assert accessLogValue.loggedIds.size() == count
       def loggedTraces = accessLogValue.loggedIds*.first
       def loggedSpans = accessLogValue.loggedIds*.second
 
       (0..count - 1).each {
-        trace(it * 2, 1) {
-          basicSpan(it, 0, "TEST_SPAN")
-        }
-        trace(it * 2 + 1, 2) {
-          serverSpan(it, 0)
+        trace(it, 2) {
+          serverSpan(it, 0, null, null, "GET", SUCCESS.body.length())
           controllerSpan(it, 1, span(0))
         }
 
-        assert loggedTraces.contains(traces[it * 2 + 1][0].traceId.toLowerBase16())
-        assert loggedSpans.contains(traces[it * 2 + 1][0].spanId.toLowerBase16())
+        assert loggedTraces.contains(traces[it][0].traceId.toLowerBase16())
+        assert loggedSpans.contains(traces[it][0].spanId.toLowerBase16())
       }
     }
 
@@ -159,18 +155,15 @@ abstract class TomcatServlet3Test extends AbstractServlet3Test<Tomcat, Context> 
     response.body().string() == ERROR.body
 
     and:
-    assertTraces(2) {
-      trace(0, 1) {
-        basicSpan(it, 0, "TEST_SPAN")
-      }
-      trace(1, 2) {
-        serverSpan(it, 0, null, null, method, ERROR)
+    assertTraces(1) {
+      trace(0, 2) {
+        serverSpan(it, 0, null, null, method, response.body().contentLength(), ERROR)
         controllerSpan(it, 1, span(0))
       }
 
       def (String traceId, String spanId) = accessLogValue.loggedIds[0]
-      assert traces[1][0].traceId.toLowerBase16() == traceId
-      assert traces[1][0].spanId.toLowerBase16() == spanId
+      assert traces[0][0].traceId.toLowerBase16() == traceId
+      assert traces[0][0].spanId.toLowerBase16() == spanId
     }
 
     where:
@@ -267,6 +260,12 @@ class TomcatServlet3TestAsync extends TomcatServlet3Test {
   Class<Servlet> servlet() {
     TestServlet3.Async
   }
+
+  @Override
+  boolean testException() {
+    // https://github.com/open-telemetry/opentelemetry-java-instrumentation/issues/807
+    return false
+  }
 }
 
 class TomcatServlet3TestFakeAsync extends TomcatServlet3Test {
@@ -274,6 +273,12 @@ class TomcatServlet3TestFakeAsync extends TomcatServlet3Test {
   @Override
   Class<Servlet> servlet() {
     TestServlet3.FakeAsync
+  }
+
+  @Override
+  boolean testException() {
+    // https://github.com/open-telemetry/opentelemetry-java-instrumentation/issues/807
+    return false
   }
 }
 
@@ -369,6 +374,12 @@ class TomcatServlet3TestDispatchAsync extends TomcatDispatchTest {
     addServlet(context, "/dispatch" + REDIRECT.path, TestServlet3.DispatchAsync)
     addServlet(context, "/dispatch" + AUTH_REQUIRED.path, TestServlet3.DispatchAsync)
     addServlet(context, "/dispatch/recursive", TestServlet3.DispatchRecursive)
+  }
+
+  @Override
+  boolean testException() {
+    // https://github.com/open-telemetry/opentelemetry-java-instrumentation/issues/807
+    return false
   }
 }
 

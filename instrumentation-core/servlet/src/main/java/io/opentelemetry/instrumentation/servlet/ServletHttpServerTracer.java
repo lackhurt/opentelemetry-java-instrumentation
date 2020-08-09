@@ -26,11 +26,9 @@ import java.net.URISyntaxException;
 import java.security.Principal;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
-public abstract class ServletHttpServerTracer
-    extends HttpServerTracer<HttpServletRequest, HttpServletRequest, HttpServletRequest> {
+public abstract class ServletHttpServerTracer<RESPONSE>
+    extends HttpServerTracer<HttpServletRequest, RESPONSE, HttpServletRequest, HttpServletRequest> {
 
   @Override
   protected String getVersion() {
@@ -104,9 +102,19 @@ public abstract class ServletHttpServerTracer
   }
 
   public void setPrincipal(Span span, HttpServletRequest request) {
-    final Principal principal = request.getUserPrincipal();
+    Principal principal = request.getUserPrincipal();
     if (principal != null) {
       span.setAttribute(MoreAttributes.USER_NAME, principal.getName());
     }
+  }
+
+  @Override
+  protected String flavor(HttpServletRequest connection, HttpServletRequest request) {
+    return connection.getProtocol();
+  }
+
+  @Override
+  protected String requestHeader(HttpServletRequest httpServletRequest, String name) {
+    return httpServletRequest.getHeader(name);
   }
 }

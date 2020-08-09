@@ -46,7 +46,7 @@ public class OpenTelemetryApiInstrumentation extends AbstractInstrumentation {
 
   @Override
   public Map<? extends ElementMatcher<? super MethodDescription>, String> transformers() {
-    final Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
+    Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
     transformers.put(
         isMethod().and(isPublic()).and(named("getTracerProvider")).and(takesArguments(0)),
         OpenTelemetryApiInstrumentation.class.getName() + "$GetTracerProviderAdvice");
@@ -65,7 +65,9 @@ public class OpenTelemetryApiInstrumentation extends AbstractInstrumentation {
     public static void methodExit(
         @Advice.Return(readOnly = false)
             unshaded.io.opentelemetry.trace.TracerProvider tracerProvider) {
-      tracerProvider = new UnshadedTracerProvider();
+      ContextStore<Context, io.grpc.Context> contextStore =
+          InstrumentationContext.get(Context.class, io.grpc.Context.class);
+      tracerProvider = new UnshadedTracerProvider(contextStore);
     }
   }
 
@@ -85,7 +87,7 @@ public class OpenTelemetryApiInstrumentation extends AbstractInstrumentation {
     public static void methodExit(
         @Advice.Return(readOnly = false)
             unshaded.io.opentelemetry.context.propagation.ContextPropagators contextPropagators) {
-      final ContextStore<Context, io.grpc.Context> contextStore =
+      ContextStore<Context, io.grpc.Context> contextStore =
           InstrumentationContext.get(Context.class, io.grpc.Context.class);
       contextPropagators = new UnshadedContextPropagators(contextStore);
     }

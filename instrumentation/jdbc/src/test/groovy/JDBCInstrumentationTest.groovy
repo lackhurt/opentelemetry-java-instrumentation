@@ -19,6 +19,7 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.opentelemetry.auto.instrumentation.jdbc.JDBCUtils
 import io.opentelemetry.auto.test.AgentTestRunner
+import io.opentelemetry.auto.test.utils.ConfigUtils
 import io.opentelemetry.trace.attributes.SemanticAttributes
 import org.apache.derby.jdbc.EmbeddedDataSource
 import org.apache.derby.jdbc.EmbeddedDriver
@@ -28,7 +29,6 @@ import org.hsqldb.jdbc.JDBCDriver
 import spock.lang.Shared
 import spock.lang.Unroll
 import test.TestConnection
-import test.TestStatement
 
 import javax.sql.DataSource
 import java.sql.CallableStatement
@@ -43,8 +43,17 @@ import static io.opentelemetry.trace.Span.Kind.CLIENT
 
 class JDBCInstrumentationTest extends AgentTestRunner {
   static {
-    System.setProperty("ota.integration.jdbc-datasource.enabled", "true")
+    ConfigUtils.updateConfig {
+      System.setProperty("otel.integration.jdbc-datasource.enabled", "true")
+    }
   }
+
+  def specCleanup() {
+    ConfigUtils.updateConfig {
+      System.clearProperty("otel.integration.jdbc-datasource.enabled")
+    }
+  }
+
 
   @Shared
   def dbName = "jdbcUnitTest"
@@ -194,14 +203,13 @@ class JDBCInstrumentationTest extends AgentTestRunner {
           childOf span(0)
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "sql"
-            "${SemanticAttributes.DB_INSTANCE.key()}" dbName.toLowerCase()
+            "${SemanticAttributes.DB_SYSTEM.key()}" system
+            "${SemanticAttributes.DB_NAME.key()}" dbName.toLowerCase()
             if (username != null) {
               "${SemanticAttributes.DB_USER.key()}" username
             }
             "${SemanticAttributes.DB_STATEMENT.key()}" JDBCUtils.normalizeSql(query)
-            "${SemanticAttributes.DB_URL.key()}" url
-            "span.origin.type" String
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" url
           }
         }
       }
@@ -212,7 +220,7 @@ class JDBCInstrumentationTest extends AgentTestRunner {
     connection.close()
 
     where:
-    driver   | connection                                                           | username | query                                           | url
+    system   | connection                                                           | username | query                                           | url
     "h2"     | new Driver().connect(jdbcUrls.get("h2"), null)                       | null     | "SELECT 3"                                      | "h2:mem:"
     "derby"  | new EmbeddedDriver().connect(jdbcUrls.get("derby"), null)            | "APP"    | "SELECT 3 FROM SYSIBM.SYSDUMMY1"                | "derby:memory:"
     "hsqldb" | new JDBCDriver().connect(jdbcUrls.get("hsqldb"), null)               | "SA"     | "SELECT 3 FROM INFORMATION_SCHEMA.SYSTEM_USERS" | "hsqldb:mem:"
@@ -251,14 +259,13 @@ class JDBCInstrumentationTest extends AgentTestRunner {
           childOf span(0)
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "sql"
-            "${SemanticAttributes.DB_INSTANCE.key()}" dbName.toLowerCase()
+            "${SemanticAttributes.DB_SYSTEM.key()}" system
+            "${SemanticAttributes.DB_NAME.key()}" dbName.toLowerCase()
             if (username != null) {
               "${SemanticAttributes.DB_USER.key()}" username
             }
             "${SemanticAttributes.DB_STATEMENT.key()}" JDBCUtils.normalizeSql(query)
-            "${SemanticAttributes.DB_URL.key()}" url
-            "span.origin.type" String
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" url
           }
         }
       }
@@ -269,7 +276,7 @@ class JDBCInstrumentationTest extends AgentTestRunner {
     connection.close()
 
     where:
-    driver  | connection                                                | username | query                            | url
+    system  | connection                                                | username | query                            | url
     "h2"    | new Driver().connect(jdbcUrls.get("h2"), null)            | null     | "SELECT 3"                       | "h2:mem:"
     "derby" | new EmbeddedDriver().connect(jdbcUrls.get("derby"), null) | "APP"    | "SELECT 3 FROM SYSIBM.SYSDUMMY1" | "derby:memory:"
     "h2"    | cpDatasources.get("tomcat").get("h2").getConnection()     | null     | "SELECT 3"                       | "h2:mem:"
@@ -300,14 +307,14 @@ class JDBCInstrumentationTest extends AgentTestRunner {
           childOf span(0)
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "sql"
-            "${SemanticAttributes.DB_INSTANCE.key()}" dbName.toLowerCase()
+            "${SemanticAttributes.DB_SYSTEM.key()}" system
+            "${SemanticAttributes.DB_NAME.key()}" dbName.toLowerCase()
             if (username != null) {
               "${SemanticAttributes.DB_USER.key()}" username
             }
             "${SemanticAttributes.DB_STATEMENT.key()}" JDBCUtils.normalizeSql(query)
-            "${SemanticAttributes.DB_URL.key()}" url
-            "span.origin.type" String
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" url
+
           }
         }
       }
@@ -318,7 +325,7 @@ class JDBCInstrumentationTest extends AgentTestRunner {
     connection.close()
 
     where:
-    driver  | connection                                                | username | query                            | url
+    system  | connection                                                | username | query                            | url
     "h2"    | new Driver().connect(jdbcUrls.get("h2"), null)            | null     | "SELECT 3"                       | "h2:mem:"
     "derby" | new EmbeddedDriver().connect(jdbcUrls.get("derby"), null) | "APP"    | "SELECT 3 FROM SYSIBM.SYSDUMMY1" | "derby:memory:"
     "h2"    | cpDatasources.get("tomcat").get("h2").getConnection()     | null     | "SELECT 3"                       | "h2:mem:"
@@ -349,14 +356,14 @@ class JDBCInstrumentationTest extends AgentTestRunner {
           childOf span(0)
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "sql"
-            "${SemanticAttributes.DB_INSTANCE.key()}" dbName.toLowerCase()
+            "${SemanticAttributes.DB_SYSTEM.key()}" system
+            "${SemanticAttributes.DB_NAME.key()}" dbName.toLowerCase()
             if (username != null) {
               "${SemanticAttributes.DB_USER.key()}" username
             }
             "${SemanticAttributes.DB_STATEMENT.key()}" JDBCUtils.normalizeSql(query)
-            "${SemanticAttributes.DB_URL.key()}" url
-            "span.origin.type" String
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" url
+
           }
         }
       }
@@ -367,7 +374,7 @@ class JDBCInstrumentationTest extends AgentTestRunner {
     connection.close()
 
     where:
-    driver  | connection                                                | username | query                            | url
+    system  | connection                                                | username | query                            | url
     "h2"    | new Driver().connect(jdbcUrls.get("h2"), null)            | null     | "SELECT 3"                       | "h2:mem:"
     "derby" | new EmbeddedDriver().connect(jdbcUrls.get("derby"), null) | "APP"    | "SELECT 3 FROM SYSIBM.SYSDUMMY1" | "derby:memory:"
     "h2"    | cpDatasources.get("tomcat").get("h2").getConnection()     | null     | "SELECT 3"                       | "h2:mem:"
@@ -398,14 +405,14 @@ class JDBCInstrumentationTest extends AgentTestRunner {
           childOf span(0)
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "sql"
-            "${SemanticAttributes.DB_INSTANCE.key()}" dbName.toLowerCase()
+            "${SemanticAttributes.DB_SYSTEM.key()}" system
+            "${SemanticAttributes.DB_NAME.key()}" dbName.toLowerCase()
             if (username != null) {
               "${SemanticAttributes.DB_USER.key()}" username
             }
             "${SemanticAttributes.DB_STATEMENT.key()}" JDBCUtils.normalizeSql(query)
-            "${SemanticAttributes.DB_URL.key()}" url
-            "span.origin.type" String
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" url
+
           }
         }
       }
@@ -416,7 +423,7 @@ class JDBCInstrumentationTest extends AgentTestRunner {
     connection.close()
 
     where:
-    driver   | connection                                                | username | query                                                                           | url
+    system   | connection                                                | username | query                                                                           | url
     "h2"     | new Driver().connect(jdbcUrls.get("h2"), null)            | null     | "CREATE TABLE S_H2 (id INTEGER not NULL, PRIMARY KEY ( id ))"                   | "h2:mem:"
     "derby"  | new EmbeddedDriver().connect(jdbcUrls.get("derby"), null) | "APP"    | "CREATE TABLE S_DERBY (id INTEGER not NULL, PRIMARY KEY ( id ))"                | "derby:memory:"
     "hsqldb" | new JDBCDriver().connect(jdbcUrls.get("hsqldb"), null)    | "SA"     | "CREATE TABLE PUBLIC.S_HSQLDB (id INTEGER not NULL, PRIMARY KEY ( id ))"        | "hsqldb:mem:"
@@ -450,14 +457,14 @@ class JDBCInstrumentationTest extends AgentTestRunner {
           childOf span(0)
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "sql"
-            "${SemanticAttributes.DB_INSTANCE.key()}" dbName.toLowerCase()
+            "${SemanticAttributes.DB_SYSTEM.key()}" system
+            "${SemanticAttributes.DB_NAME.key()}" dbName.toLowerCase()
             if (username != null) {
               "${SemanticAttributes.DB_USER.key()}" username
             }
             "${SemanticAttributes.DB_STATEMENT.key()}" JDBCUtils.normalizeSql(query)
-            "${SemanticAttributes.DB_URL.key()}" url
-            "span.origin.type" String
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" url
+
           }
         }
       }
@@ -468,7 +475,7 @@ class JDBCInstrumentationTest extends AgentTestRunner {
     connection.close()
 
     where:
-    driver  | connection                                                | username | query                                                                    | url
+    system  | connection                                                | username | query                                                                    | url
     "h2"    | new Driver().connect(jdbcUrls.get("h2"), null)            | null     | "CREATE TABLE PS_H2 (id INTEGER not NULL, PRIMARY KEY ( id ))"           | "h2:mem:"
     "derby" | new EmbeddedDriver().connect(jdbcUrls.get("derby"), null) | "APP"    | "CREATE TABLE PS_DERBY (id INTEGER not NULL, PRIMARY KEY ( id ))"        | "derby:memory:"
     "h2"    | cpDatasources.get("tomcat").get("h2").getConnection()     | null     | "CREATE TABLE PS_H2_TOMCAT (id INTEGER not NULL, PRIMARY KEY ( id ))"    | "h2:mem:"
@@ -517,14 +524,14 @@ class JDBCInstrumentationTest extends AgentTestRunner {
             if (prepareStatement) {
             } else {
             }
-            "${SemanticAttributes.DB_TYPE.key()}" "sql"
-            "${SemanticAttributes.DB_INSTANCE.key()}" dbName.toLowerCase()
+            "${SemanticAttributes.DB_SYSTEM.key()}" system
+            "${SemanticAttributes.DB_NAME.key()}" dbName.toLowerCase()
             if (username != null) {
               "${SemanticAttributes.DB_USER.key()}" username
             }
             "${SemanticAttributes.DB_STATEMENT.key()}" JDBCUtils.normalizeSql(query)
-            "${SemanticAttributes.DB_URL.key()}" url
-            "span.origin.type" String
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" url
+
           }
         }
       }
@@ -539,7 +546,7 @@ class JDBCInstrumentationTest extends AgentTestRunner {
     }
 
     where:
-    prepareStatement | driver  | driverClass          | jdbcUrl                                        | username | query                            | url
+    prepareStatement | system  | driverClass          | jdbcUrl                                        | username | query                            | url
     true             | "h2"    | new Driver()         | "jdbc:h2:mem:" + dbName                        | null     | "SELECT 3;"                      | "h2:mem:"
     true             | "derby" | new EmbeddedDriver() | "jdbc:derby:memory:" + dbName + ";create=true" | "APP"    | "SELECT 3 FROM SYSIBM.SYSDUMMY1" | "derby:memory:"
     false            | "h2"    | new Driver()         | "jdbc:h2:mem:" + dbName                        | null     | "SELECT 3;"                      | "h2:mem:"
@@ -621,10 +628,9 @@ class JDBCInstrumentationTest extends AgentTestRunner {
           childOf span(0)
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "sql"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "testdb"
             "${SemanticAttributes.DB_STATEMENT.key()}" JDBCUtils.normalizeSql(query)
-            "${SemanticAttributes.DB_URL.key()}" "testdb://localhost"
-            "span.origin.type" TestStatement.name
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "testdb://localhost"
           }
         }
       }
@@ -682,12 +688,12 @@ class JDBCInstrumentationTest extends AgentTestRunner {
           spanKind CLIENT
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "sql"
-            "${SemanticAttributes.DB_INSTANCE.key()}" dbName.toLowerCase()
+            "${SemanticAttributes.DB_SYSTEM.key()}" "hsqldb"
+            "${SemanticAttributes.DB_NAME.key()}" dbName.toLowerCase()
             "${SemanticAttributes.DB_USER.key()}" "SA"
             "${SemanticAttributes.DB_STATEMENT.key()}" JDBCUtils.normalizeSql(query)
-            "${SemanticAttributes.DB_URL.key()}" "hsqldb:mem:"
-            "span.origin.type" String
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "hsqldb:mem:"
+
           }
         }
       }
@@ -698,12 +704,12 @@ class JDBCInstrumentationTest extends AgentTestRunner {
             spanKind CLIENT
             errored false
             attributes {
-              "${SemanticAttributes.DB_TYPE.key()}" "sql"
-              "${SemanticAttributes.DB_INSTANCE.key()}" dbName.toLowerCase()
+              "${SemanticAttributes.DB_SYSTEM.key()}" "hsqldb"
+              "${SemanticAttributes.DB_NAME.key()}" dbName.toLowerCase()
               "${SemanticAttributes.DB_USER.key()}" "SA"
               "${SemanticAttributes.DB_STATEMENT.key()}" JDBCUtils.normalizeSql(query)
-              "${SemanticAttributes.DB_URL.key()}" "hsqldb:mem:"
-              "span.origin.type" String
+              "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "hsqldb:mem:"
+
             }
           }
         }

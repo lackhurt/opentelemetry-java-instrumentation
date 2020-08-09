@@ -20,10 +20,12 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class VersionLogger {
+
+  private static final Logger log = LoggerFactory.getLogger(VersionLogger.class);
 
   /** Log version string for java-agent */
   public static void logAllVersions() {
@@ -45,8 +47,8 @@ public class VersionLogger {
   private static String getVersionString(final InputStream stream) {
     String v;
     try {
-      final StringBuilder sb = new StringBuilder();
-      final BufferedReader br = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
+      StringBuilder sb = new StringBuilder();
+      BufferedReader br = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
       for (int c = br.read(); c != -1; c = br.read()) {
         sb.append((char) c);
       }

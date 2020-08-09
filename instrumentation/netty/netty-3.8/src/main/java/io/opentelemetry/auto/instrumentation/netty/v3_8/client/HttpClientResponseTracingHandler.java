@@ -16,14 +16,14 @@
 
 package io.opentelemetry.auto.instrumentation.netty.v3_8.client;
 
-import static io.opentelemetry.auto.instrumentation.netty.v3_8.client.NettyHttpClientDecorator.DECORATE;
-import static io.opentelemetry.auto.instrumentation.netty.v3_8.client.NettyHttpClientDecorator.TRACER;
+import static io.opentelemetry.auto.instrumentation.netty.v3_8.client.NettyHttpClientTracer.TRACER;
 
 import io.opentelemetry.auto.bootstrap.ContextStore;
 import io.opentelemetry.auto.instrumentation.netty.v3_8.ChannelTraceContext;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.trace.DefaultSpan;
 import io.opentelemetry.trace.Span;
+import io.opentelemetry.trace.TracingContextUtils;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
@@ -41,7 +41,7 @@ public class HttpClientResponseTracingHandler extends SimpleChannelUpstreamHandl
 
   @Override
   public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent msg) {
-    final ChannelTraceContext channelTraceContext =
+    ChannelTraceContext channelTraceContext =
         contextStore.putIfAbsent(ctx.getChannel(), ChannelTraceContext.Factory.INSTANCE);
 
     Span parent = channelTraceContext.getClientParentSpan();
@@ -49,20 +49,16 @@ public class HttpClientResponseTracingHandler extends SimpleChannelUpstreamHandl
       parent = DefaultSpan.getInvalid();
       channelTraceContext.setClientParentSpan(DefaultSpan.getInvalid());
     }
-    final Span span = channelTraceContext.getClientSpan();
+    Span span = channelTraceContext.getClientSpan();
 
-    final boolean finishSpan = msg.getMessage() instanceof HttpResponse;
+    boolean finishSpan = msg.getMessage() instanceof HttpResponse;
 
     if (span != null && finishSpan) {
-      try (final Scope scope = TRACER.withSpan(span)) {
-        DECORATE.onResponse(span, (HttpResponse) msg.getMessage());
-        DECORATE.beforeFinish(span);
-        span.end();
-      }
+      TRACER.end(span, (HttpResponse) msg.getMessage());
     }
 
     // We want the callback in the scope of the parent, not the client span
-    try (final Scope scope = TRACER.withSpan(parent)) {
+    try (Scope scope = TracingContextUtils.currentContextWith(parent)) {
       ctx.sendUpstream(msg);
     }
   }

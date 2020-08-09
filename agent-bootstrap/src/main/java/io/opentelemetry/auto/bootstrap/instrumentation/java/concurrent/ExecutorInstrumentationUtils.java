@@ -22,12 +22,23 @@ import io.grpc.Context;
 import io.opentelemetry.auto.bootstrap.ContextStore;
 import io.opentelemetry.auto.bootstrap.WeakMap;
 import io.opentelemetry.trace.Span;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Utils for concurrent instrumentations. */
-@Slf4j
 public class ExecutorInstrumentationUtils {
+
+  // locations where the context was propagated to another thread (tracking multiple steps is
+  // helpful in akka where there is so much recursive async spawning of new work)
+  public static final Context.Key<List<StackTraceElement[]>> THREAD_PROPAGATION_LOCATIONS =
+      Context.key("thread-propagation-locations");
+  public static final boolean THREAD_PROPAGATION_DEBUGGER =
+      Boolean.getBoolean("otel.threadPropagationDebugger");
+
+  private static final Logger log = LoggerFactory.getLogger(ExecutorInstrumentationUtils.class);
 
   private static final WeakMap<Executor, Boolean> EXECUTORS_DISABLED_FOR_WRAPPED_TASKS =
       WeakMap.Provider.newWeakMap();
@@ -44,12 +55,15 @@ public class ExecutorInstrumentationUtils {
       return false;
     }
 
-    final Span span = TRACER.getCurrentSpan();
-    final Class enclosingClass = task.getClass().getEnclosingClass();
+    Span span = TRACER.getCurrentSpan();
+    Class<?> taskClass = task.getClass();
+    Class<?> enclosingClass = taskClass.getEnclosingClass();
 
     return span.getContext().isValid()
         && !ExecutorInstrumentationUtils.isExecutorDisabledForThisTask(executor, task)
-
+        // TODO Workaround for
+        // https://github.com/open-telemetry/opentelemetry-java-instrumentation/issues/787
+        && !taskClass.getName().equals("org.apache.tomcat.util.net.NioEndpoint$SocketProcessor")
         // Don't instrument the executor's own runnables.  These runnables may never return until
         // netty shuts down.  Any created continuations will be open until that time preventing
         // traces from being reported
@@ -65,12 +79,20 @@ public class ExecutorInstrumentationUtils {
    * @param <T> task class type
    * @param contextStore context storage
    * @param task task instance
-   * @param context current span
+   * @param context current context
    * @return new state
    */
   public static <T> State setupState(
-      final ContextStore<T, State> contextStore, final T task, final Context context) {
-    final State state = contextStore.putIfAbsent(task, State.FACTORY);
+      final ContextStore<T, State> contextStore, final T task, Context context) {
+    State state = contextStore.putIfAbsent(task, State.FACTORY);
+    if (THREAD_PROPAGATION_DEBUGGER) {
+      List<StackTraceElement[]> location = THREAD_PROPAGATION_LOCATIONS.get(context);
+      if (location == null) {
+        location = new CopyOnWriteArrayList<>();
+        context = context.withValue(THREAD_PROPAGATION_LOCATIONS, location);
+      }
+      location.add(0, new Exception().getStackTrace());
+    }
     state.setParentSpan(context);
     return state;
   }

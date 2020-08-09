@@ -35,7 +35,7 @@ import static io.opentelemetry.auto.test.base.HttpServerTest.ServerEndpoint.SUCC
 class GrizzlyTest extends HttpServerTest<HttpServer> {
 
   static {
-    System.setProperty("ota.integration.grizzly.enabled", "true")
+    System.setProperty("otel.integration.grizzly.enabled", "true")
   }
 
   @Override
@@ -108,7 +108,13 @@ class GrizzlyTest extends HttpServerTest<HttpServer> {
   }
 
   @Override
-  String expectedOperationName(String method, ServerEndpoint endpoint) {
+  String expectedServerSpanName(String method, ServerEndpoint endpoint) {
     return "HttpCodecFilter.handleRead"
+  }
+
+  @Override
+  boolean testException() {
+    // TODO(anuraaga): https://github.com/open-telemetry/opentelemetry-java-instrumentation/issues/807
+    return false
   }
 }

@@ -19,6 +19,7 @@ package io.opentelemetry.auto.test
 import io.opentelemetry.auto.bootstrap.AgentClassLoader
 import io.opentelemetry.auto.tooling.ClassLoaderMatcher
 import io.opentelemetry.auto.tooling.ExporterClassLoader
+import io.opentelemetry.auto.tooling.log.LogContextScopeListener
 import io.opentelemetry.auto.util.test.AgentSpecification
 
 class ClassLoaderMatcherTest extends AgentSpecification {
@@ -26,7 +27,7 @@ class ClassLoaderMatcherTest extends AgentSpecification {
   def "skips agent classloader"() {
     setup:
     URL root = new URL("file://")
-    final URLClassLoader agentLoader = new AgentClassLoader(root, null, null)
+    URLClassLoader agentLoader = new AgentClassLoader(root, null, null)
     expect:
     ClassLoaderMatcher.skipClassLoader().matches(agentLoader)
   }
@@ -34,14 +35,14 @@ class ClassLoaderMatcherTest extends AgentSpecification {
   def "skips exporter classloader"() {
     setup:
     URL url = new URL("file://")
-    final URLClassLoader exporterLoader = new ExporterClassLoader(url, null)
+    URLClassLoader exporterLoader = new ExporterClassLoader(url, null)
     expect:
     ClassLoaderMatcher.skipClassLoader().matches(exporterLoader)
   }
 
   def "does not skip empty classloader"() {
     setup:
-    final ClassLoader emptyLoader = new ClassLoader() {}
+    ClassLoader emptyLoader = new ClassLoader() {}
     expect:
     !ClassLoaderMatcher.skipClassLoader().matches(emptyLoader)
   }
@@ -59,5 +60,10 @@ class ClassLoaderMatcherTest extends AgentSpecification {
   def "ExporterClassLoader class name is hardcoded in ClassLoaderMatcher"() {
     expect:
     ExporterClassLoader.name == "io.opentelemetry.auto.tooling.ExporterClassLoader"
+  }
+
+  def "helper class names are hardcoded in Log Instrumentations"() {
+    expect:
+    LogContextScopeListener.name == "io.opentelemetry.auto.tooling.log.LogContextScopeListener"
   }
 }

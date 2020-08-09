@@ -27,7 +27,6 @@ import org.asynchttpclient.AsyncCompletionHandler
 import org.asynchttpclient.AsyncHttpClient
 import org.asynchttpclient.DefaultAsyncHttpClientConfig
 import org.asynchttpclient.Response
-import spock.lang.Retry
 import spock.lang.Shared
 import spock.lang.Timeout
 
@@ -40,7 +39,6 @@ import static io.opentelemetry.auto.test.utils.TraceUtils.basicSpan
 import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
 import static org.asynchttpclient.Dsl.asyncHttpClient
 
-@Retry
 @Timeout(5)
 class Netty41ClientTest extends HttpClientTest {
 
@@ -111,12 +109,7 @@ class Netty41ClientTest extends HttpClientTest {
             operationName "CONNECT"
             childOf span(0)
             errored true
-            attributes {
-              "error.type" AbstractChannel.AnnotatedConnectException.name
-              "error.stack" String
-              // slightly different message on windows
-              "error.msg" ~/Connection refused:( no further information:)? localhost\/[0-9.:]+:$UNUSABLE_PORT/
-            }
+            errorEvent(AbstractChannel.AnnotatedConnectException, ~/Connection refused:( no further information:)? localhost\/\[?[0-9.:]+\]?:$UNUSABLE_PORT/)
           }
         }
       }

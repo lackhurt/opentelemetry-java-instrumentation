@@ -28,12 +28,14 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public abstract class AbstractExecutorInstrumentation extends Instrumenter.Default {
+
+  private static final Logger log = LoggerFactory.getLogger(AbstractExecutorInstrumentation.class);
 
   public static final String EXEC_NAME = "java_concurrent";
 
@@ -60,7 +62,7 @@ public abstract class AbstractExecutorInstrumentation extends Instrumenter.Defau
       WHITELISTED_EXECUTORS = Collections.emptyList();
       WHITELISTED_EXECUTORS_PREFIXES = Collections.emptyList();
     } else {
-      final String[] whitelist = {
+      String[] whitelist = {
         "akka.actor.ActorSystemImpl$$anon$1",
         "akka.dispatch.BalancingDispatcher",
         "akka.dispatch.Dispatcher",
@@ -104,12 +106,12 @@ public abstract class AbstractExecutorInstrumentation extends Instrumenter.Defau
         "scala.concurrent.impl.ExecutionContextImpl",
       };
 
-      final Set<String> executors = new HashSet<>(Config.get().getTraceExecutors());
+      Set<String> executors = new HashSet<>(Config.get().getTraceExecutors());
       executors.addAll(Arrays.asList(whitelist));
 
       WHITELISTED_EXECUTORS = Collections.unmodifiableSet(executors);
 
-      final String[] whitelistPrefixes = {"slick.util.AsyncExecutor$"};
+      String[] whitelistPrefixes = {"slick.util.AsyncExecutor$"};
       WHITELISTED_EXECUTORS_PREFIXES =
           Collections.unmodifiableCollection(Arrays.asList(whitelistPrefixes));
     }
@@ -130,7 +132,7 @@ public abstract class AbstractExecutorInstrumentation extends Instrumenter.Defau
 
                   // Check for possible prefixes match only if not whitelisted already
                   if (!whitelisted) {
-                    for (final String name : WHITELISTED_EXECUTORS_PREFIXES) {
+                    for (String name : WHITELISTED_EXECUTORS_PREFIXES) {
                       if (target.getName().startsWith(name)) {
                         whitelisted = true;
                         break;

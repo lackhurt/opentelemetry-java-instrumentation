@@ -75,7 +75,7 @@ public final class JMSMessageProducerInstrumentation extends Instrumenter.Defaul
 
   @Override
   public Map<? extends ElementMatcher<? super MethodDescription>, String> transformers() {
-    final Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
+    Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
     transformers.put(
         named("send").and(takesArgument(0, named("javax.jms.Message"))).and(isPublic()),
         JMSMessageProducerInstrumentation.class.getName() + "$ProducerAdvice");
@@ -93,7 +93,7 @@ public final class JMSMessageProducerInstrumentation extends Instrumenter.Defaul
     @Advice.OnMethodEnter(suppress = Throwable.class)
     public static SpanWithScope onEnter(
         @Advice.Argument(0) final Message message, @Advice.This final MessageProducer producer) {
-      final int callDepth = CallDepthThreadLocalMap.incrementCallDepth(MessageProducer.class);
+      int callDepth = CallDepthThreadLocalMap.incrementCallDepth(MessageProducer.class);
       if (callDepth > 0) {
         return null;
       }
@@ -105,15 +105,14 @@ public final class JMSMessageProducerInstrumentation extends Instrumenter.Defaul
         defaultDestination = null;
       }
 
-      final Span span =
+      Span span =
           TRACER
               .spanBuilder(DECORATE.spanNameForProducer(message, defaultDestination))
               .setSpanKind(PRODUCER)
-              .setAttribute("span.origin.type", producer.getClass().getName())
               .startSpan();
       DECORATE.afterStart(span);
 
-      final Context context = withSpan(span, Context.current());
+      Context context = withSpan(span, Context.current());
       OpenTelemetry.getPropagators().getHttpTextFormat().inject(context, message, SETTER);
 
       return new SpanWithScope(span, currentContextWith(span));
@@ -127,7 +126,7 @@ public final class JMSMessageProducerInstrumentation extends Instrumenter.Defaul
       }
       CallDepthThreadLocalMap.reset(MessageProducer.class);
 
-      final Span span = spanWithScope.getSpan();
+      Span span = spanWithScope.getSpan();
       DECORATE.onError(span, throwable);
       DECORATE.beforeFinish(span);
 
@@ -141,22 +140,20 @@ public final class JMSMessageProducerInstrumentation extends Instrumenter.Defaul
     @Advice.OnMethodEnter(suppress = Throwable.class)
     public static SpanWithScope onEnter(
         @Advice.Argument(0) final Destination destination,
-        @Advice.Argument(1) final Message message,
-        @Advice.This final MessageProducer producer) {
-      final int callDepth = CallDepthThreadLocalMap.incrementCallDepth(MessageProducer.class);
+        @Advice.Argument(1) final Message message) {
+      int callDepth = CallDepthThreadLocalMap.incrementCallDepth(MessageProducer.class);
       if (callDepth > 0) {
         return null;
       }
 
-      final Span span =
+      Span span =
           TRACER
               .spanBuilder(DECORATE.spanNameForProducer(message, destination))
               .setSpanKind(PRODUCER)
-              .setAttribute("span.origin.type", producer.getClass().getName())
               .startSpan();
       DECORATE.afterStart(span);
 
-      final Context context = withSpan(span, Context.current());
+      Context context = withSpan(span, Context.current());
       OpenTelemetry.getPropagators().getHttpTextFormat().inject(context, message, SETTER);
 
       return new SpanWithScope(span, currentContextWith(span));
@@ -170,7 +167,7 @@ public final class JMSMessageProducerInstrumentation extends Instrumenter.Defaul
       }
       CallDepthThreadLocalMap.reset(MessageProducer.class);
 
-      final Span span = spanWithScope.getSpan();
+      Span span = spanWithScope.getSpan();
       DECORATE.onError(span, throwable);
       DECORATE.beforeFinish(span);
       span.end();

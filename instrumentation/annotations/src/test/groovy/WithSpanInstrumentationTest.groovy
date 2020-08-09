@@ -17,23 +17,24 @@
 import io.opentelemetry.auto.test.AgentTestRunner
 import io.opentelemetry.auto.test.utils.ConfigUtils
 import io.opentelemetry.test.annotation.TracedWithSpan
+import io.opentelemetry.trace.Span
 
 /**
- * This test verifies that auto instrumentation supports {@link io.opentelemetry.contrib.auto.annotations.WithSpan} contrib annotation.
+ * This test verifies that auto instrumentation supports {@link io.opentelemetry.extensions.auto.annotations.WithSpan} contrib annotation.
  */
 class WithSpanInstrumentationTest extends AgentTestRunner {
 
   static {
     ConfigUtils.updateConfig {
-      System.setProperty("ota.trace.classes.exclude", WithSpanInstrumentationTest.name + "*")
-      System.setProperty("ota.trace.methods.exclude", "${TracedWithSpan.name}[ignored]")
+      System.setProperty("otel.trace.classes.exclude", WithSpanInstrumentationTest.name + "*")
+      System.setProperty("otel.trace.annotated.methods.exclude", "${TracedWithSpan.name}[ignored]")
     }
   }
 
   def specCleanup() {
     ConfigUtils.updateConfig {
-      System.clearProperty("ota.trace.classes.exclude")
-      System.clearProperty("ota.trace.methods.exclude")
+      System.clearProperty("otel.trace.classes.exclude")
+      System.clearProperty("otel.trace.annotated.methods.exclude")
     }
   }
 
@@ -46,6 +47,7 @@ class WithSpanInstrumentationTest extends AgentTestRunner {
       trace(0, 1) {
         span(0) {
           operationName "TracedWithSpan.otel"
+          spanKind Span.Kind.INTERNAL
           parent()
           errored false
           attributes {
@@ -75,7 +77,28 @@ class WithSpanInstrumentationTest extends AgentTestRunner {
     }
   }
 
-  def "should ignore method excluded by trace.methods.exclude configuration"() {
+  def "should take span kind from annotation"() {
+    setup:
+    new TracedWithSpan().oneOfAKind()
+
+    expect:
+    assertTraces(1) {
+      trace(0, 1) {
+        span(0) {
+          operationName "TracedWithSpan.oneOfAKind"
+          spanKind Span.Kind.PRODUCER
+          parent()
+          errored false
+          attributes {
+            "providerAttr" "Otel"
+          }
+        }
+      }
+    }
+  }
+
+
+  def "should ignore method excluded by trace.annotated.methods.exclude configuration"() {
     setup:
     new TracedWithSpan().ignored()
 

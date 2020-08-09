@@ -107,7 +107,7 @@ class Elasticsearch5RestClientTest extends AgentTestRunner {
             "${SemanticAttributes.NET_PEER_PORT.key()}" httpTransportAddress.port
             "${SemanticAttributes.HTTP_URL.key()}" "_cluster/health"
             "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
-            "${SemanticAttributes.DB_TYPE.key()}" "elasticsearch"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "elasticsearch"
           }
         }
         span(1) {

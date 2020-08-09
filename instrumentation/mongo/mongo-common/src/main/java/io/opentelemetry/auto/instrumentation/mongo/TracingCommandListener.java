@@ -25,22 +25,20 @@ import com.mongodb.event.CommandSucceededEvent;
 import io.opentelemetry.trace.Span;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 public class TracingCommandListener implements CommandListener {
 
   private final Map<Integer, Span> spanMap = new ConcurrentHashMap<>();
 
   @Override
   public void commandStarted(final CommandStartedEvent event) {
-    Span span = TRACER.startSpan(event, event.getCommand(), null);
+    Span span = TRACER.startSpan(event, event.getCommand());
     spanMap.put(event.getRequestId(), span);
   }
 
   @Override
   public void commandSucceeded(final CommandSucceededEvent event) {
-    final Span span = spanMap.remove(event.getRequestId());
+    Span span = spanMap.remove(event.getRequestId());
     if (span != null) {
       TRACER.end(span);
     }
@@ -48,7 +46,7 @@ public class TracingCommandListener implements CommandListener {
 
   @Override
   public void commandFailed(final CommandFailedEvent event) {
-    final Span span = spanMap.remove(event.getRequestId());
+    Span span = spanMap.remove(event.getRequestId());
     if (span != null) {
       TRACER.endExceptionally(span, event.getThrowable());
     }

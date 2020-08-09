@@ -21,16 +21,14 @@ import io.opentelemetry.OpenTelemetry;
 import io.opentelemetry.auto.typed.client.ClientTypedTracer;
 import io.opentelemetry.context.propagation.HttpTextFormat;
 import io.opentelemetry.trace.TracingContextUtils;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 public abstract class HttpClientTypedTracer<
         T extends HttpClientTypedSpan<T, REQUEST, RESPONSE>, REQUEST, RESPONSE>
     extends ClientTypedTracer<T, REQUEST, RESPONSE> {
 
   @Override
   protected T startSpan(final REQUEST request, final T span) {
-    final Context context = TracingContextUtils.withSpan(span, Context.current());
+    Context context = TracingContextUtils.withSpan(span, Context.current());
     OpenTelemetry.getPropagators().getHttpTextFormat().inject(context, request, getSetter());
     return super.startSpan(request, span);
   }

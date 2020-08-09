@@ -1,4 +1,9 @@
+ext {
+  retryTests = true
+}
+
 apply from: "$rootDir/gradle/java.gradle"
+apply from: "$rootDir/gradle/publish.gradle"
 
 // TODO this is not the desired state, only reflects current reality
 minimumBranchCoverage = 0
@@ -25,7 +30,7 @@ dependencies {
   implementation deps.autoservice
   implementation deps.slf4j
 
-  testImplementation project(':testing')
+  testImplementation project(':testing-common')
 
   instrumentationMuzzle sourceSets.main.output
   instrumentationMuzzle configurations.implementation

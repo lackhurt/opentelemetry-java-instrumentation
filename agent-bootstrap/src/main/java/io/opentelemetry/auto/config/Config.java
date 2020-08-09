@@ -31,10 +31,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.SortedSet;
 import java.util.regex.Pattern;
-import lombok.Getter;
-import lombok.NonNull;
-import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Config reads values with the following priority: 1) system properties, 2) environment variables,
@@ -45,13 +43,14 @@ import lombok.extern.slf4j.Slf4j;
  * <p>System properties are {@link Config#PREFIX}'ed. Environment variables are the same as the
  * system property, but uppercased and '.' is replaced with '_'.
  */
-@Slf4j
-@ToString(includeFieldNames = true)
 public class Config {
+
+  private static final Logger log = LoggerFactory.getLogger(Config.class);
+
   private static final MethodHandles.Lookup PUBLIC_LOOKUP = MethodHandles.publicLookup();
 
   /** Config keys below */
-  private static final String PREFIX = "ota.";
+  private static final String PREFIX = "otel.";
 
   private static final Pattern ENV_REPLACEMENT = Pattern.compile("[^a-zA-Z0-9_]");
 
@@ -65,7 +64,7 @@ public class Config {
   public static final String TRACE_EXECUTORS_ALL = "trace.executors.all";
   public static final String TRACE_EXECUTORS = "trace.executors";
   public static final String TRACE_METHODS = "trace.methods";
-  public static final String TRACE_METHODS_EXCLUDE = "trace.methods.exclude";
+  public static final String TRACE_ANNOTATED_METHODS_EXCLUDE = "trace.annotated.methods.exclude";
   public static final String TRACE_CLASSES_EXCLUDE = "trace.classes.exclude";
   public static final String HTTP_SERVER_ERROR_STATUSES = "http.server.error.statuses";
   public static final String HTTP_CLIENT_ERROR_STATUSES = "http.client.error.statuses";
@@ -101,23 +100,23 @@ public class Config {
   private static final boolean DEFAULT_TRACE_EXECUTORS_ALL = false;
   private static final String DEFAULT_TRACE_EXECUTORS = "";
   private static final String DEFAULT_TRACE_METHODS = null;
-  private static final String DEFAULT_TRACE_METHODS_EXCLUDE = null;
+  private static final String DEFAULT_TRACE_ANNOTATED_METHODS_EXCLUDE = null;
 
   public static final String SQL_NORMALIZER_ENABLED = "sql.normalizer.enabled";
   public static final boolean DEFAULT_SQL_NORMALIZER_ENABLED = true;
 
-  @Getter private final String exporterJar;
-  @Getter private final String exporter;
-  @Getter private final List<String> propagators;
-  @Getter private final boolean traceEnabled;
-  @Getter private final boolean integrationsEnabled;
-  @Getter private final List<String> excludedClasses;
-  @Getter private final boolean httpServerTagQueryString;
-  @Getter private final boolean httpClientTagQueryString;
-  @Getter private final Integer scopeDepthLimit;
-  @Getter private final boolean runtimeContextFieldInjection;
+  private final String exporterJar;
+  private final String exporter;
+  private final List<String> propagators;
+  private final boolean traceEnabled;
+  private final boolean integrationsEnabled;
+  private final List<String> excludedClasses;
+  private final boolean httpServerTagQueryString;
+  private final boolean httpClientTagQueryString;
+  private final Integer scopeDepthLimit;
+  private final boolean runtimeContextFieldInjection;
 
-  @Getter private final boolean logInjectionEnabled;
+  private final boolean logInjectionEnabled;
 
   // mapping of threshold values to different logging frameworks:
   //
@@ -133,21 +132,21 @@ public class Config {
   // | FINER        | FINER   | DEBUG   | DEBUG  |
   // | TRACE/FINEST | FINEST  | TRACE   | TRACE  |
   // | ALL          | ALL     | ALL     | ALL    |
-  @Getter private final String experimentalLogCaptureThreshold;
+  private final String experimentalLogCaptureThreshold;
 
-  @Getter private final String traceAnnotations;
+  private final String traceAnnotations;
 
-  @Getter private final String traceMethods;
-  @Getter private final String traceMethodsExclude;
+  private final String traceMethods;
+  private final String traceAnnotatedMethodsExclude;
 
-  @Getter private final boolean traceExecutorsAll;
-  @Getter private final List<String> traceExecutors;
+  private final boolean traceExecutorsAll;
+  private final List<String> traceExecutors;
 
-  @Getter private final boolean sqlNormalizerEnabled;
+  private final boolean sqlNormalizerEnabled;
 
-  @Getter private final boolean kafkaClientPropagationEnabled;
+  private final boolean kafkaClientPropagationEnabled;
 
-  @Getter private final Map<String, String> endpointPeerServiceMapping;
+  private final Map<String, String> endpointPeerServiceMapping;
 
   // Values from an optionally provided properties file
   private static Properties propertiesFromConfigFile;
@@ -192,8 +191,9 @@ public class Config {
     traceAnnotations = getSettingFromEnvironment(TRACE_ANNOTATIONS, DEFAULT_TRACE_ANNOTATIONS);
 
     traceMethods = getSettingFromEnvironment(TRACE_METHODS, DEFAULT_TRACE_METHODS);
-    traceMethodsExclude =
-        getSettingFromEnvironment(TRACE_METHODS_EXCLUDE, DEFAULT_TRACE_METHODS_EXCLUDE);
+    traceAnnotatedMethodsExclude =
+        getSettingFromEnvironment(
+            TRACE_ANNOTATED_METHODS_EXCLUDE, DEFAULT_TRACE_ANNOTATED_METHODS_EXCLUDE);
 
     traceExecutorsAll =
         getBooleanSettingFromEnvironment(TRACE_EXECUTORS_ALL, DEFAULT_TRACE_EXECUTORS_ALL);
@@ -252,7 +252,9 @@ public class Config {
     traceAnnotations = properties.getProperty(TRACE_ANNOTATIONS, parent.traceAnnotations);
 
     traceMethods = properties.getProperty(TRACE_METHODS, parent.traceMethods);
-    traceMethodsExclude = properties.getProperty(TRACE_METHODS_EXCLUDE, parent.traceMethodsExclude);
+    traceAnnotatedMethodsExclude =
+        properties.getProperty(
+            TRACE_ANNOTATED_METHODS_EXCLUDE, parent.traceAnnotatedMethodsExclude);
 
     traceExecutorsAll =
         getPropertyBooleanValue(properties, TRACE_EXECUTORS_ALL, parent.traceExecutorsAll);
@@ -277,8 +279,8 @@ public class Config {
     // If default is enabled, we want to enable individually,
     // if default is disabled, we want to disable individually.
     boolean anyEnabled = defaultEnabled;
-    for (final String name : integrationNames) {
-      final boolean configEnabled =
+    for (String name : integrationNames) {
+      boolean configEnabled =
           getBooleanSettingFromEnvironment("integration." + name + ".enabled", defaultEnabled);
       if (defaultEnabled) {
         anyEnabled &= configEnabled;
@@ -290,7 +292,7 @@ public class Config {
   }
 
   /**
-   * Helper method that takes the name, adds a "ota." prefix then checks for System Properties of
+   * Helper method that takes the name, adds a "otel." prefix then checks for System Properties of
    * that name. If none found, the name is converted to an Environment Variable and used to check
    * the env. If none of the above returns a value, then an optional properties file if checked. If
    * setting is not configured in either location, <code>defaultValue</code> is returned.
@@ -302,7 +304,7 @@ public class Config {
    */
   public static String getSettingFromEnvironment(final String name, final String defaultValue) {
     String value;
-    final String systemPropertyName = propertyNameToSystemPropertyName(name);
+    String systemPropertyName = propertyNameToSystemPropertyName(name);
 
     // System properties and properties provided from command line have the highest precedence
     value = System.getProperties().getProperty(systemPropertyName);
@@ -329,13 +331,11 @@ public class Config {
    * Calls {@link #getSettingFromEnvironment(String, String)} and converts the result to a list by
    * splitting on `,`.
    */
-  @NonNull
   private static List<String> getListSettingFromEnvironment(
       final String name, final String defaultValue) {
     return parseList(getSettingFromEnvironment(name, defaultValue));
   }
 
-  @NonNull
   private static Map<String, String> getMapSettingFromEnvironment(final String name) {
     return parseMap(getSettingFromEnvironment(name, null));
   }
@@ -368,12 +368,11 @@ public class Config {
 
   /**
    * Converts the property name, e.g. 'trace.enabled' into a public environment variable name, e.g.
-   * `OTA_TRACE_ENABLED`.
+   * `OTEL_TRACE_ENABLED`.
    *
    * @param setting The setting name, e.g. `trace.enabled`
    * @return The public facing environment variable name
    */
-  @NonNull
   private static String propertyNameToEnvironmentVariableName(final String setting) {
     return ENV_REPLACEMENT
         .matcher(propertyNameToSystemPropertyName(setting).toUpperCase())
@@ -382,12 +381,11 @@ public class Config {
 
   /**
    * Converts the property name, e.g. 'trace.config' into a public system property name, e.g.
-   * `ota.trace.config`.
+   * `otel.trace.config`.
    *
    * @param setting The setting name, e.g. `trace.config`
    * @return The public facing system property name
    */
-  @NonNull
   private static String propertyNameToSystemPropertyName(final String setting) {
     return PREFIX + setting;
   }
@@ -400,8 +398,7 @@ public class Config {
    * @return value == null || value.trim().isEmpty() ? defaultValue : tClass.valueOf(value)
    * @throws NumberFormatException
    */
-  private static <T> T valueOf(
-      final String value, @NonNull final Class<T> tClass, final T defaultValue) {
+  private static <T> T valueOf(final String value, final Class<T> tClass, final T defaultValue) {
     if (value == null || value.trim().isEmpty()) {
       return defaultValue;
     }
@@ -423,13 +420,13 @@ public class Config {
 
   private static List<String> getPropertyListValue(
       final Properties properties, final String name, final List<String> defaultValue) {
-    final String value = properties.getProperty(name);
+    String value = properties.getProperty(name);
     return value == null || value.trim().isEmpty() ? defaultValue : parseList(value);
   }
 
   private static Map<String, String> getPropertyMapValue(
       final Properties properties, final String name, final Map<String, String> defaultValue) {
-    final String value = properties.getProperty(name);
+    String value = properties.getProperty(name);
     return value == null || value.trim().isEmpty() ? defaultValue : parseMap(value);
   }
 
@@ -443,13 +440,12 @@ public class Config {
     return valueOf(properties.getProperty(name), Integer.class, defaultValue);
   }
 
-  @NonNull
   private static List<String> parseList(final String str) {
     if (str == null || str.trim().isEmpty()) {
       return Collections.emptyList();
     }
 
-    final String[] tokens = str.split(",", -1);
+    String[] tokens = str.split(",", -1);
     // Remove whitespace from each item.
     for (int i = 0; i < tokens.length; i++) {
       tokens[i] = tokens[i].trim();
@@ -462,7 +458,7 @@ public class Config {
       return Collections.emptyMap();
     }
 
-    final Map<String, String> result = new LinkedHashMap<>();
+    Map<String, String> result = new LinkedHashMap<>();
     for (String token : str.split(",", -1)) {
       token = token.trim();
       String[] parts = token.split("=", -1);
@@ -482,7 +478,7 @@ public class Config {
    *     exist or if it is in a wrong format.
    */
   private static Properties loadConfigurationFile() {
-    final Properties properties = new Properties();
+    Properties properties = new Properties();
 
     // Reading from system property first and from env after
     String configurationFilePath =
@@ -500,13 +496,13 @@ public class Config {
         configurationFilePath.replaceFirst("^~", System.getProperty("user.home"));
 
     // Configuration properties file is optional
-    final File configurationFile = new File(configurationFilePath);
+    File configurationFile = new File(configurationFilePath);
     if (!configurationFile.exists()) {
       log.error("Configuration file '{}' not found.", configurationFilePath);
       return properties;
     }
 
-    try (final FileReader fileReader = new FileReader(configurationFile)) {
+    try (FileReader fileReader = new FileReader(configurationFile)) {
       properties.load(fileReader);
     } catch (final FileNotFoundException fnf) {
       log.error("Configuration file '{}' not found.", configurationFilePath);
@@ -535,5 +531,137 @@ public class Config {
     } else {
       return new Config(properties, INSTANCE);
     }
+  }
+
+  public String getExporterJar() {
+    return exporterJar;
+  }
+
+  public String getExporter() {
+    return exporter;
+  }
+
+  public List<String> getPropagators() {
+    return propagators;
+  }
+
+  public boolean isTraceEnabled() {
+    return traceEnabled;
+  }
+
+  public boolean isIntegrationsEnabled() {
+    return integrationsEnabled;
+  }
+
+  public List<String> getExcludedClasses() {
+    return excludedClasses;
+  }
+
+  public boolean isHttpServerTagQueryString() {
+    return httpServerTagQueryString;
+  }
+
+  public boolean isHttpClientTagQueryString() {
+    return httpClientTagQueryString;
+  }
+
+  public Integer getScopeDepthLimit() {
+    return scopeDepthLimit;
+  }
+
+  public boolean isRuntimeContextFieldInjection() {
+    return runtimeContextFieldInjection;
+  }
+
+  public boolean isLogInjectionEnabled() {
+    return logInjectionEnabled;
+  }
+
+  public String getExperimentalLogCaptureThreshold() {
+    return experimentalLogCaptureThreshold;
+  }
+
+  public String getTraceAnnotations() {
+    return traceAnnotations;
+  }
+
+  public String getTraceMethods() {
+    return traceMethods;
+  }
+
+  public String getTraceAnnotatedMethodsExclude() {
+    return traceAnnotatedMethodsExclude;
+  }
+
+  public boolean isTraceExecutorsAll() {
+    return traceExecutorsAll;
+  }
+
+  public List<String> getTraceExecutors() {
+    return traceExecutors;
+  }
+
+  public boolean isSqlNormalizerEnabled() {
+    return sqlNormalizerEnabled;
+  }
+
+  public boolean isKafkaClientPropagationEnabled() {
+    return kafkaClientPropagationEnabled;
+  }
+
+  public Map<String, String> getEndpointPeerServiceMapping() {
+    return endpointPeerServiceMapping;
+  }
+
+  @Override
+  public String toString() {
+    return "Config{"
+        + "exporterJar='"
+        + exporterJar
+        + '\''
+        + ", exporter='"
+        + exporter
+        + '\''
+        + ", propagators="
+        + propagators
+        + ", traceEnabled="
+        + traceEnabled
+        + ", integrationsEnabled="
+        + integrationsEnabled
+        + ", excludedClasses="
+        + excludedClasses
+        + ", httpServerTagQueryString="
+        + httpServerTagQueryString
+        + ", httpClientTagQueryString="
+        + httpClientTagQueryString
+        + ", scopeDepthLimit="
+        + scopeDepthLimit
+        + ", runtimeContextFieldInjection="
+        + runtimeContextFieldInjection
+        + ", logInjectionEnabled="
+        + logInjectionEnabled
+        + ", experimentalLogCaptureThreshold='"
+        + experimentalLogCaptureThreshold
+        + '\''
+        + ", traceAnnotations='"
+        + traceAnnotations
+        + '\''
+        + ", traceMethods='"
+        + traceMethods
+        + '\''
+        + ", traceAnnotatedMethodsExclude='"
+        + traceAnnotatedMethodsExclude
+        + '\''
+        + ", traceExecutorsAll="
+        + traceExecutorsAll
+        + ", traceExecutors="
+        + traceExecutors
+        + ", sqlNormalizerEnabled="
+        + sqlNormalizerEnabled
+        + ", kafkaClientPropagationEnabled="
+        + kafkaClientPropagationEnabled
+        + ", endpointPeerServiceMapping="
+        + endpointPeerServiceMapping
+        + '}';
   }
 }

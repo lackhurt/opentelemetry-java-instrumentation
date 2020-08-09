@@ -29,7 +29,6 @@ import io.opentelemetry.context.Scope;
 import io.opentelemetry.trace.Span;
 import java.util.HashMap;
 import java.util.Map;
-import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.description.type.TypeDescription;
@@ -39,7 +38,6 @@ import scala.concurrent.ExecutionContext;
 import scala.concurrent.Future;
 import scala.runtime.AbstractFunction1;
 
-@Slf4j
 @AutoService(Instrumenter.class)
 public final class AkkaHttpServerInstrumentation extends Instrumenter.Default {
   public AkkaHttpServerInstrumentation() {
@@ -71,7 +69,7 @@ public final class AkkaHttpServerInstrumentation extends Instrumenter.Default {
     //
     // Instead, we're instrumenting the bindAndHandle function helpers by
     // wrapping the scala functions with our own handlers.
-    final Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
+    Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
     transformers.put(
         named("bindAndHandleSync").and(takesArgument(0, named("scala.Function1"))),
         AkkaHttpServerInstrumentation.class.getName() + "$AkkaHttpSyncAdvice");
@@ -100,7 +98,6 @@ public final class AkkaHttpServerInstrumentation extends Instrumenter.Default {
     }
   }
 
-  @Slf4j
   public static class SyncWrapper extends AbstractFunction1<HttpRequest, HttpResponse> {
     private final Function1<HttpRequest, HttpResponse> userHandler;
 
@@ -110,10 +107,10 @@ public final class AkkaHttpServerInstrumentation extends Instrumenter.Default {
 
     @Override
     public HttpResponse apply(final HttpRequest request) {
-      Span span = TRACER.startSpan(request, request, "akka.request", null);
+      Span span = TRACER.startSpan(request, request, "akka.request");
       try (Scope ignored = TRACER.startScope(span, null)) {
-        final HttpResponse response = userHandler.apply(request);
-        TRACER.end(span, response.status().intValue());
+        HttpResponse response = userHandler.apply(request);
+        TRACER.end(span, response);
         return response;
       } catch (final Throwable t) {
         TRACER.endExceptionally(span, t);
@@ -122,7 +119,6 @@ public final class AkkaHttpServerInstrumentation extends Instrumenter.Default {
     }
   }
 
-  @Slf4j
   public static class AsyncWrapper extends AbstractFunction1<HttpRequest, Future<HttpResponse>> {
     private final Function1<HttpRequest, Future<HttpResponse>> userHandler;
     private final ExecutionContext executionContext;
@@ -136,7 +132,7 @@ public final class AkkaHttpServerInstrumentation extends Instrumenter.Default {
 
     @Override
     public Future<HttpResponse> apply(final HttpRequest request) {
-      Span span = TRACER.startSpan(request, request, "akka.request", null);
+      Span span = TRACER.startSpan(request, request, "akka.request");
       try (Scope ignored = TRACER.startScope(span, null)) {
         return userHandler
             .apply(request)
@@ -144,7 +140,7 @@ public final class AkkaHttpServerInstrumentation extends Instrumenter.Default {
                 new AbstractFunction1<HttpResponse, HttpResponse>() {
                   @Override
                   public HttpResponse apply(final HttpResponse response) {
-                    TRACER.end(span, response.status().intValue());
+                    TRACER.end(span, response);
                     return response;
                   }
                 },

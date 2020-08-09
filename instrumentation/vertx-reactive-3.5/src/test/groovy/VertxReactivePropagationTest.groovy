@@ -68,26 +68,28 @@ class VertxReactivePropagationTest extends AgentTestRunner {
           parent()
           attributes {
             "${SemanticAttributes.NET_PEER_PORT.key()}" Long
-            "${SemanticAttributes.NET_PEER_IP.key()}" { it == null || it == "127.0.0.1" } // Optional
+            "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
             "${SemanticAttributes.HTTP_URL.key()}" url
             "${SemanticAttributes.HTTP_METHOD.key()}" "GET"
             "${SemanticAttributes.HTTP_STATUS_CODE.key()}" 200
+            "${SemanticAttributes.HTTP_FLAVOR.key()}" "HTTP/1.1"
+            "${SemanticAttributes.HTTP_USER_AGENT.key()}" String
+            "${SemanticAttributes.HTTP_CLIENT_IP.key()}" "127.0.0.1"
           }
         }
-        basicSpan(it, 1, "VertxReactiveWebServer.handleListProducts", span(0))
-        basicSpan(it, 2, "VertxReactiveWebServer.listProducts", span(1))
+        basicSpan(it, 1, "handleListProducts", span(0))
+        basicSpan(it, 2, "listProducts", span(1))
         span(3) {
           operationName "SELECT id, name, price, weight FROM products"
           spanKind CLIENT
           childOf span(2)
           errored false
           attributes {
-            "${SemanticAttributes.DB_TYPE.key()}" "sql"
-            "${SemanticAttributes.DB_INSTANCE.key()}" "test?shutdown=true"
+            "${SemanticAttributes.DB_SYSTEM.key()}" "hsqldb"
+            "${SemanticAttributes.DB_NAME.key()}" "test?shutdown=true"
             "${SemanticAttributes.DB_USER.key()}" "SA"
             "${SemanticAttributes.DB_STATEMENT.key()}" "SELECT id, name, price, weight FROM products"
-            "${SemanticAttributes.DB_URL.key()}" "hsqldb:mem:"
-            "span.origin.type" String
+            "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "hsqldb:mem:"
           }
         }
       }

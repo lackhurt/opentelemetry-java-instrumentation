@@ -16,18 +16,14 @@
 
 package io.opentelemetry.auto.bootstrap.instrumentation.java.concurrent;
 
-import static io.opentelemetry.trace.TracingContextUtils.getSpan;
-
 import io.grpc.Context;
 import io.opentelemetry.OpenTelemetry;
 import io.opentelemetry.auto.bootstrap.ContextStore;
-import io.opentelemetry.auto.instrumentation.api.SpanWithScope;
 import io.opentelemetry.context.ContextUtils;
+import io.opentelemetry.context.Scope;
 import io.opentelemetry.trace.Tracer;
-import lombok.extern.slf4j.Slf4j;
 
 /** Helper utils for Runnable/Callable instrumentation */
-@Slf4j
 public class AdviceUtils {
 
   public static final Tracer TRACER =
@@ -41,22 +37,14 @@ public class AdviceUtils {
    * @param <T> task's type
    * @return scope if scope was started, or null
    */
-  public static <T> SpanWithScope startTaskScope(
-      final ContextStore<T, State> contextStore, final T task) {
-    final State state = contextStore.get(task);
+  public static <T> Scope startTaskScope(final ContextStore<T, State> contextStore, final T task) {
+    State state = contextStore.get(task);
     if (state != null) {
-      final Context parentContext = state.getAndResetParentContext();
+      Context parentContext = state.getAndResetParentContext();
       if (parentContext != null) {
-        return new SpanWithScope(
-            getSpan(parentContext), ContextUtils.withScopedContext(parentContext));
+        return ContextUtils.withScopedContext(parentContext);
       }
     }
     return null;
-  }
-
-  public static void endTaskScope(final SpanWithScope spanWithScope) {
-    if (spanWithScope != null) {
-      spanWithScope.closeScope();
-    }
   }
 }

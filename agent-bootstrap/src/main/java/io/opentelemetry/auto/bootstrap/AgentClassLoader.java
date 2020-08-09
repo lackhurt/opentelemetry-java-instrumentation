@@ -20,7 +20,8 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Classloader used to run the core agent.
@@ -28,13 +29,15 @@ import lombok.extern.slf4j.Slf4j;
  * <p>It is built around the concept of a jar inside another jar. This classloader loads the files
  * of the internal jar to load classes and resources.
  */
-@Slf4j
 public class AgentClassLoader extends URLClassLoader {
   static {
     ClassLoader.registerAsParallelCapable();
   }
 
-  private static final String AGENT_INITIALIZER_JAR = System.getProperty("ota.initializer.jar", "");
+  private static final Logger log = LoggerFactory.getLogger(AgentClassLoader.class);
+
+  private static final String AGENT_INITIALIZER_JAR =
+      System.getProperty("otel.initializer.jar", "");
 
   // Calling java.lang.instrument.Instrumentation#appendToBootstrapClassLoaderSearch
   // adds a jar to the bootstrap class lookup, but not to the resource lookup.
@@ -73,7 +76,7 @@ public class AgentClassLoader extends URLClassLoader {
     }
 
     if (!AGENT_INITIALIZER_JAR.isEmpty()) {
-      final URL url;
+      URL url;
       try {
         url = new File(AGENT_INITIALIZER_JAR).toURI().toURL();
       } catch (MalformedURLException e) {
@@ -90,7 +93,7 @@ public class AgentClassLoader extends URLClassLoader {
 
   @Override
   public URL getResource(final String resourceName) {
-    final URL bootstrapResource = bootstrapProxy.getResource(resourceName);
+    URL bootstrapResource = bootstrapProxy.getResource(resourceName);
     if (null == bootstrapResource) {
       return super.getResource(resourceName);
     } else {

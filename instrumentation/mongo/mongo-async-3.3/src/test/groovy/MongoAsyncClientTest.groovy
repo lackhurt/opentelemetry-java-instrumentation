@@ -328,10 +328,10 @@ class MongoAsyncClientTest extends MongoBaseTest {
         "${SemanticAttributes.NET_PEER_NAME.key()}" "localhost"
         "${SemanticAttributes.NET_PEER_IP.key()}" "127.0.0.1"
         "${SemanticAttributes.NET_PEER_PORT.key()}" port
-        "${SemanticAttributes.DB_URL.key()}" "mongodb://localhost:" + port
+        "${SemanticAttributes.DB_CONNECTION_STRING.key()}" "mongodb://localhost:" + port
         "${SemanticAttributes.DB_STATEMENT.key()}" statementEval
-        "${SemanticAttributes.DB_TYPE.key()}" "mongo"
-        "${SemanticAttributes.DB_INSTANCE.key()}" instance
+        "${SemanticAttributes.DB_SYSTEM.key()}" "mongodb"
+        "${SemanticAttributes.DB_NAME.key()}" instance
       }
     }
   }

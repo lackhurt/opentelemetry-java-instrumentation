@@ -32,7 +32,6 @@ import net.bytebuddy.implementation.bytecode.assign.Assigner;
 public class Servlet2Advice {
   @Advice.OnMethodEnter(suppress = Throwable.class)
   public static void onEnter(
-      @Advice.This final Object servlet,
       @Advice.Origin final Method method,
       @Advice.Argument(0) final ServletRequest request,
       @Advice.Argument(value = 1, typing = Assigner.Typing.DYNAMIC) final ServletResponse response,
@@ -43,15 +42,13 @@ public class Servlet2Advice {
       return;
     }
 
-    final HttpServletRequest httpServletRequest = (HttpServletRequest) request;
+    HttpServletRequest httpServletRequest = (HttpServletRequest) request;
 
     if (TRACER.getServerContext(httpServletRequest) != null) {
       return;
     }
 
-    span =
-        TRACER.startSpan(
-            httpServletRequest, httpServletRequest, method, servlet.getClass().getName());
+    span = TRACER.startSpan(httpServletRequest, httpServletRequest, method);
     scope = TRACER.startScope(span, httpServletRequest);
   }
 
@@ -72,10 +69,12 @@ public class Servlet2Advice {
     Integer responseStatus =
         InstrumentationContext.get(ServletResponse.class, Integer.class).get(response);
 
+    ResponseWithStatus responseWithStatus =
+        new ResponseWithStatus((HttpServletResponse) response, responseStatus);
     if (throwable == null) {
-      TRACER.end(span, responseStatus);
+      TRACER.end(span, responseWithStatus);
     } else {
-      TRACER.endExceptionally(span, throwable, responseStatus);
+      TRACER.endExceptionally(span, throwable, responseWithStatus);
     }
   }
 }

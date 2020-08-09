@@ -41,9 +41,8 @@ import static io.opentelemetry.auto.test.utils.TraceUtils.runUnderTrace
 import static io.opentelemetry.trace.Span.Kind.CLIENT
 import static net.spy.memcached.ConnectionFactoryBuilder.Protocol.BINARY
 
-// Do not run tests locally on Java7 since testcontainers are not compatible with Java7
-// It is fine to run on CI because CI provides memcached externally, not through testcontainers
-@Requires({ "true" == System.getenv("CI") || jvm.java8Compatible })
+// Do not run tests on Java7 since testcontainers are not compatible with Java7
+@Requires({ jvm.java8Compatible })
 class SpymemcachedTest extends AgentTestRunner {
 
   @Shared
@@ -69,11 +68,11 @@ class SpymemcachedTest extends AgentTestRunner {
   def setupSpec() {
 
     /*
-      CI will provide us with memcached container running along side our build.
-      When building locally, however, we need to take matters into our own hands
+      CircleCI will provide us with memcached container running along side our build.
+      When building locally and in GitHub actions, however, we need to take matters into our own hands
       and we use 'testcontainers' for this.
      */
-    if ("true" != System.getenv("CI")) {
+    if ("true" != System.getenv("CIRCLECI")) {
       memcachedContainer = new GenericContainer('memcached:latest')
         .withExposedPorts(defaultMemcachedPort)
         .withStartupTimeout(Duration.ofSeconds(120))
@@ -639,8 +638,20 @@ class SpymemcachedTest extends AgentTestRunner {
       spanKind CLIENT
       errored(error != null && error != "canceled")
 
+      if (error == "timeout") {
+        errorEvent(
+          CheckedOperationTimeoutException,
+          "Operation timed out. - failing node: ${memcachedAddress.address}:${memcachedAddress.port}")
+      }
+
+      if (error == "long key") {
+        errorEvent(
+          IllegalArgumentException,
+          "Key is too long (maxlen = 250)")
+      }
+
       attributes {
-        "${SemanticAttributes.DB_TYPE.key()}" "memcached"
+        "${SemanticAttributes.DB_SYSTEM.key()}" "memcached"
 
         if (error == "canceled") {
           "${CompletionListener.DB_COMMAND_CANCELLED}" true
@@ -652,18 +663,6 @@ class SpymemcachedTest extends AgentTestRunner {
 
         if (result == "miss") {
           "${CompletionListener.MEMCACHED_RESULT}" CompletionListener.MISS
-        }
-
-        if (error == "timeout") {
-          errorAttributes(
-            CheckedOperationTimeoutException,
-            "Operation timed out. - failing node: ${memcachedAddress.address}:${memcachedAddress.port}")
-        }
-
-        if (error == "long key") {
-          errorAttributes(
-            IllegalArgumentException,
-            "Key is too long (maxlen = 250)")
         }
       }
     }

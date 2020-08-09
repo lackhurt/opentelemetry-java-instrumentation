@@ -54,7 +54,9 @@ public class LettuceReactiveCommandsInstrumentation extends Instrumenter.Default
   @Override
   public String[] helperClassNames() {
     return new String[] {
-      packageName + ".LettuceClientDecorator",
+      packageName + ".LettuceAbstractDatabaseClientTracer",
+      packageName + ".LettuceConnectionDatabaseClientTracer",
+      packageName + ".LettuceDatabaseClientTracer",
       packageName + ".LettuceInstrumentationUtil",
       packageName + ".rx.LettuceMonoCreationAdvice",
       packageName + ".rx.LettuceMonoDualConsumer",
@@ -66,7 +68,7 @@ public class LettuceReactiveCommandsInstrumentation extends Instrumenter.Default
 
   @Override
   public Map<? extends ElementMatcher<? super MethodDescription>, String> transformers() {
-    final Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
+    Map<ElementMatcher<? super MethodDescription>, String> transformers = new HashMap<>();
     transformers.put(
         isMethod()
             .and(named("createMono"))

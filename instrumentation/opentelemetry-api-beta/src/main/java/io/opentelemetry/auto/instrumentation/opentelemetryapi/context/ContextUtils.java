@@ -17,16 +17,18 @@
 package io.opentelemetry.auto.instrumentation.opentelemetryapi.context;
 
 import io.opentelemetry.auto.bootstrap.ContextStore;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import unshaded.io.grpc.Context;
 import unshaded.io.opentelemetry.context.Scope;
 
-@Slf4j
 public class ContextUtils {
+
+  private static final Logger log = LoggerFactory.getLogger(ContextUtils.class);
 
   public static Scope withScopedContext(
       final Context context, final ContextStore<Context, io.grpc.Context> contextStore) {
-    final io.grpc.Context shadedContext = contextStore.get(context);
+    io.grpc.Context shadedContext = contextStore.get(context);
     if (shadedContext == null) {
       if (log.isDebugEnabled()) {
         log.debug("unexpected context: {}", context, new Exception("unexpected context"));
@@ -34,7 +36,7 @@ public class ContextUtils {
       return NoopScope.getInstance();
     }
 
-    final io.opentelemetry.context.Scope scope =
+    io.opentelemetry.context.Scope scope =
         io.opentelemetry.context.ContextUtils.withScopedContext(shadedContext);
     return new UnshadedScope(scope);
   }

@@ -23,6 +23,7 @@ import io.lettuce.core.tracing.Tracer;
 import io.lettuce.core.tracing.TracerProvider;
 import io.lettuce.core.tracing.Tracing;
 import io.opentelemetry.OpenTelemetry;
+import io.opentelemetry.auto.bootstrap.instrumentation.jdbc.DbSystem;
 import io.opentelemetry.trace.Span;
 import io.opentelemetry.trace.Span.Kind;
 import io.opentelemetry.trace.Status;
@@ -139,7 +140,7 @@ public enum OpenTelemetryTracing implements Tracing {
 
       Context context = ((OpenTelemetryTraceContext) traceContext).getContext();
 
-      final io.opentelemetry.trace.Span parent = TracingContextUtils.getSpan(context);
+      io.opentelemetry.trace.Span parent = TracingContextUtils.getSpan(context);
 
       return new OpenTelemetrySpan(parent);
     }
@@ -167,10 +168,10 @@ public enum OpenTelemetryTracing implements Tracing {
       // the span starts.
       spanBuilder =
           TRACER
-              .spanBuilder("REDIS")
+              .spanBuilder("redis")
               .setSpanKind(Kind.CLIENT)
               .setParent(parent)
-              .setAttribute(SemanticAttributes.DB_TYPE.key(), "redis");
+              .setAttribute(SemanticAttributes.DB_SYSTEM.key(), DbSystem.REDIS);
     }
 
     @Override
@@ -227,7 +228,7 @@ public enum OpenTelemetryTracing implements Tracing {
           events = new ArrayList<>();
         }
         events.add(value);
-        final Instant now = Instant.now();
+        Instant now = Instant.now();
         events.add(TimeUnit.SECONDS.toNanos(now.getEpochSecond()) + now.getNano());
       }
       return this;
@@ -250,7 +251,7 @@ public enum OpenTelemetryTracing implements Tracing {
     @Override
     public synchronized Tracer.Span error(Throwable throwable) {
       // TODO(anuraaga): Check if any lettuce exceptions map well to a Status and try mapping.
-      final Status status =
+      Status status =
           Status.UNKNOWN.withDescription(throwable.getClass() + ": " + throwable.getMessage());
       if (span != null) {
         span.setStatus(status);
@@ -264,7 +265,7 @@ public enum OpenTelemetryTracing implements Tracing {
     public synchronized void finish() {
       if (span != null) {
         if (name != null) {
-          final String statement = args != null && !args.isEmpty() ? name + " " + args : name;
+          String statement = args != null && !args.isEmpty() ? name + " " + args : name;
           SemanticAttributes.DB_STATEMENT.set(span, statement);
         }
         span.end();
@@ -275,7 +276,7 @@ public enum OpenTelemetryTracing implements Tracing {
       span.setAttribute(SemanticAttributes.NET_TRANSPORT.key(), "IP.TCP");
       span.setAttribute(SemanticAttributes.NET_PEER_IP.key(), endpoint.ip);
 
-      final StringBuilder redisUrl = new StringBuilder("redis://");
+      StringBuilder redisUrl = new StringBuilder("redis://");
 
       if (endpoint.name != null) {
         span.setAttribute(SemanticAttributes.NET_PEER_NAME.key(), endpoint.name);
@@ -289,14 +290,14 @@ public enum OpenTelemetryTracing implements Tracing {
         redisUrl.append(":").append(endpoint.port);
       }
 
-      span.setAttribute(SemanticAttributes.DB_URL.key(), redisUrl.toString());
+      span.setAttribute(SemanticAttributes.DB_CONNECTION_STRING.key(), redisUrl.toString());
     }
 
     private static void fillEndpoint(Span span, OpenTelemetryEndpoint endpoint) {
       span.setAttribute(SemanticAttributes.NET_TRANSPORT.key(), "IP.TCP");
       span.setAttribute(SemanticAttributes.NET_PEER_IP.key(), endpoint.ip);
 
-      final StringBuilder redisUrl = new StringBuilder("redis://");
+      StringBuilder redisUrl = new StringBuilder("redis://");
 
       if (endpoint.name != null) {
         span.setAttribute(SemanticAttributes.NET_PEER_NAME.key(), endpoint.name);
@@ -310,7 +311,7 @@ public enum OpenTelemetryTracing implements Tracing {
         redisUrl.append(":").append(endpoint.port);
       }
 
-      span.setAttribute(SemanticAttributes.DB_URL.key(), redisUrl.toString());
+      span.setAttribute(SemanticAttributes.DB_CONNECTION_STRING.key(), redisUrl.toString());
     }
   }
 }

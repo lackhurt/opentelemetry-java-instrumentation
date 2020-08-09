@@ -27,6 +27,7 @@ public final class Constants {
    * packages which will be loaded on the bootstrap classloader
    *
    * <p>Updates should be mirrored in
+   * io.opentelemetry.auto.gradle.instrumentation.AutoInstrumentationPlugin#BOOTSTRAP_PACKAGE_PREFIXES_COPY
    * io.opentelemetry.auto.test.SpockRunner#BOOTSTRAP_PACKAGE_PREFIXES_COPY
    */
   public static final String[] BOOTSTRAP_PACKAGE_PREFIXES = {
@@ -35,7 +36,8 @@ public final class Constants {
     "io.opentelemetry.auto.config",
     "io.opentelemetry.auto.bootstrap",
     "io.opentelemetry.auto.instrumentation.api",
-    "io.opentelemetry.auto.shaded"
+    "io.opentelemetry.auto.shaded",
+    "io.opentelemetry.auto.typedspan",
   };
 
   // This is used in IntegrationTestUtils.java

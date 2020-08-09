@@ -26,11 +26,12 @@ import io.opentelemetry.auto.tooling.Instrumenter;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * TraceConfig Instrumentation does not extend Default.
@@ -41,9 +42,10 @@ import net.bytebuddy.matcher.ElementMatcher;
  * <p>If this becomes a more common use case the building logic should be abstracted out into a
  * super class.
  */
-@Slf4j
 @AutoService(Instrumenter.class)
 public class TraceConfigInstrumentation implements Instrumenter {
+
+  private static final Logger log = LoggerFactory.getLogger(TraceConfigInstrumentation.class);
 
   private final Map<String, Set<String>> classMethodsToTrace;
 
@@ -51,7 +53,7 @@ public class TraceConfigInstrumentation implements Instrumenter {
     classMethodsToTrace = MethodsConfigurationParser.parse(Config.get().getTraceMethods());
 
     Map<String, Set<String>> excludedMethods =
-        MethodsConfigurationParser.parse(Config.get().getTraceMethodsExclude());
+        MethodsConfigurationParser.parse(Config.get().getTraceAnnotatedMethodsExclude());
     for (Map.Entry<String, Set<String>> entry : excludedMethods.entrySet()) {
       Set<String> tracedMethods = classMethodsToTrace.get(entry.getKey());
       if (tracedMethods != null) {
@@ -66,8 +68,8 @@ public class TraceConfigInstrumentation implements Instrumenter {
       return agentBuilder;
     }
 
-    for (final Map.Entry<String, Set<String>> entry : classMethodsToTrace.entrySet()) {
-      final TracerClassInstrumentation tracerConfigClass =
+    for (Map.Entry<String, Set<String>> entry : classMethodsToTrace.entrySet()) {
+      TracerClassInstrumentation tracerConfigClass =
           new TracerClassInstrumentation(entry.getKey(), entry.getValue());
       agentBuilder = tracerConfigClass.instrument(agentBuilder);
     }
@@ -111,7 +113,7 @@ public class TraceConfigInstrumentation implements Instrumenter {
     @Override
     public Map<ElementMatcher<? super MethodDescription>, String> transformers() {
       ElementMatcher.Junction<MethodDescription> methodMatchers = null;
-      for (final String methodName : methodNames) {
+      for (String methodName : methodNames) {
         if (methodMatchers == null) {
           methodMatchers = named(methodName);
         } else {

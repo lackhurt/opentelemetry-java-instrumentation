@@ -33,7 +33,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.agent.builder.ResettableClassFileTransformer;
 import net.bytebuddy.description.type.TypeDefinition;
@@ -41,9 +40,13 @@ import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.matcher.ElementMatcher;
 import net.bytebuddy.utility.JavaModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class AgentInstaller {
+
+  private static final Logger log = LoggerFactory.getLogger(AgentInstaller.class);
+
   private static final Map<String, List<Runnable>> CLASS_LOAD_CALLBACKS = new HashMap<>();
   private static volatile Instrumentation INSTRUMENTATION;
 
@@ -75,7 +78,7 @@ public class AgentInstaller {
       final boolean skipAdditionalLibraryMatcher,
       final AgentBuilder.Listener... listeners) {
 
-    final ClassLoader savedContextClassLoader = Thread.currentThread().getContextClassLoader();
+    ClassLoader savedContextClassLoader = Thread.currentThread().getContextClassLoader();
     try {
       // calling (shaded) OpenTelemetry.getTracerProvider() with context class loader set to the
       // agent class loader, so that SPI finds the agent's (isolated) SDK, and (shaded)
@@ -125,7 +128,7 @@ public class AgentInstaller {
               .with(new TransformLoggingListener());
     }
 
-    for (final AgentBuilder.Listener listener : listeners) {
+    for (AgentBuilder.Listener listener : listeners) {
       agentBuilder = agentBuilder.with(listener);
     }
     int numInstrumenters = 0;
@@ -145,10 +148,10 @@ public class AgentInstaller {
   }
 
   private static void addByteBuddyRawSetting() {
-    final String savedPropertyValue = System.getProperty(TypeDefinition.RAW_TYPES_PROPERTY);
+    String savedPropertyValue = System.getProperty(TypeDefinition.RAW_TYPES_PROPERTY);
     try {
       System.setProperty(TypeDefinition.RAW_TYPES_PROPERTY, "true");
-      final boolean rawTypes = TypeDescription.AbstractBase.RAW_TYPES;
+      boolean rawTypes = TypeDescription.AbstractBase.RAW_TYPES;
       if (!rawTypes) {
         log.debug("Too late to enable {}", TypeDefinition.RAW_TYPES_PROPERTY);
       }
@@ -162,7 +165,7 @@ public class AgentInstaller {
   }
 
   private static ElementMatcher.Junction<Object> matchesConfiguredExcludes() {
-    final List<String> excludedClasses = Config.get().getExcludedClasses();
+    List<String> excludedClasses = Config.get().getExcludedClasses();
     ElementMatcher.Junction matcher = none();
     List<String> literals = new ArrayList<>();
     List<String> prefixes = new ArrayList<>();
@@ -187,8 +190,9 @@ public class AgentInstaller {
     return matcher;
   }
 
-  @Slf4j
   static class RedefinitionLoggingListener implements AgentBuilder.RedefinitionStrategy.Listener {
+
+    private static final Logger log = LoggerFactory.getLogger(RedefinitionLoggingListener.class);
 
     @Override
     public void onBatch(final int index, final List<Class<?>> batch, final List<Class<?>> types) {}
@@ -213,8 +217,9 @@ public class AgentInstaller {
         final Map<List<Class<?>>, Throwable> failures) {}
   }
 
-  @Slf4j
   static class TransformLoggingListener implements AgentBuilder.Listener {
+
+    private static final Logger log = LoggerFactory.getLogger(TransformLoggingListener.class);
 
     @Override
     public void onError(
@@ -332,7 +337,7 @@ public class AgentInstaller {
         final JavaModule javaModule,
         final boolean b) {
       synchronized (CLASS_LOAD_CALLBACKS) {
-        final List<Runnable> callbacks = CLASS_LOAD_CALLBACKS.get(typeName);
+        List<Runnable> callbacks = CLASS_LOAD_CALLBACKS.get(typeName);
         if (callbacks != null) {
           for (final Runnable callback : callbacks) {
             callback.run();

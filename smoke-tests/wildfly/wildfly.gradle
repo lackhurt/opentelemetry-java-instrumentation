@@ -5,9 +5,13 @@ ext {
   serverExtension = 'zip'
 
   minJavaVersionForTests = JavaVersion.VERSION_1_8
+  retryTests = true
 }
 
 repositories {
+  mavenLocal()
+  jcenter()
+  mavenCentral()
   ivy {
     url 'https://download.jboss.org/'
     patternLayout {
